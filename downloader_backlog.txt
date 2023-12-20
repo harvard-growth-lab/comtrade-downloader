@@ -1,0 +1,7 @@
+Before running productionized downloader
+Create dictionary, According to Comtrade by year by reporter each last_updated_date
+Create dictionary, According to our download directory by year by reporter each last_updated_date
+
+Compare Comtrade downloaded files to what we would expect to see 
+
+Then filter out which ones need to be downloaded 
