@@ -263,82 +263,58 @@ class ComtradeDownloader(object):
             logging.info(f"Filtering and exporting data for year {year}.")
             corrupted_files = self.combine_clean_comtrade_commodity_year(year)
             attempts = 1
-            remove_from_corrupted = {}
+            remove_from_corrupted = set()
             corrupted = False
             while corrupted_files and attempts < 4:
                 corrupted = True
                 logging.info(f"Found corrupted files")
-                for year, reporter_codes in corrupted_files.items():
+                for corrupted_file in corrupted_files:
+                    year = corrupted.split("/")[-1][20:24]
+                    reporter_code = corrupted.split("/")[-1][17:20]
                     logging.info(f"... requesting from api {year}-{reporter_codes}.")
-                    for reporter in reporter_codes:
-                        comtradeapicall.bulkDownloadFinalFile(
-                            self.api_key,
-                            year_path,
-                            typeCode="C",
-                            freqCode="A",
-                            clCode=self.classification_code,
-                            period=str(year),
-                            reporterCode=reporter,
-                            decompress=False,
-                        )
-                        # attempt to read in all re-downloaded file using reporter code
-                        year_path = os.path.join(self.raw_files_path, str(year))
-                        for f in glob.glob(
-                            os.path.join(year_path, f".*{re.escape(reporter)}*.*\.gz")
-                        ):
-                            try:
-                                df = pd.read_csv(
-                                    f,
-                                    sep="\t",
-                                    compression="gzip",
-                                    usecols=list(self.columns.keys()),
-                                    dtype=self.columns,
-                                )
-                                remove_from_corrupted[year] = remove_from_corrupted.get(
-                                    year, []
-                                ) + [reporter]
-                            except:
-                                logging.info(
-                                    f"{f} on attempt {attempts} after initial failure  is still corrupted"
-                                )
-                                continue
-                for year, reporter_codes in remove_from_corrupted.items():
-                    logging.info(
-                        f"reviewing files that re-downloaded successfully and removing from corrupted tracking"
+                    comtradeapicall.bulkDownloadFinalFile(
+                        self.api_key,
+                        year_path,
+                        typeCode="C",
+                        freqCode="A",
+                        clCode=self.classification_code,
+                        period=year,
+                        reporterCode=[reporter_code],
+                        decompress=False,
                     )
-                    for code in reporter_codes:
-                        corrupted_files[year].remove(code)
-                    if not corrupted_files[year]:
-                        del corrupted_files[year]
-                logging.info(
-                    f"corrupted files: {corrupted_files} after attempt {attempts}"
-                )
+                    # attempt to read in all re-downloaded file using reporter code
+                    try:
+                        df = pd.read_csv(
+                            corrupted_file,
+                            sep="\t",
+                            compression="gzip",
+                            usecols=list(self.columns.keys()),
+                            dtype=self.columns,
+                        )
+                        # if successful read then remove from corrupted_files
+                        remove_from_corrupted.add(corrupted_file)
+                    except:
+                        logging.info(
+                            f"{f} on attempt {attempts} after initial failure  is still corrupted"
+                        )
+                        continue
+                for file in remove_from_corrupted:
+                    logging.info(f"remove {remove_from_corrupted}")
+                    corruped_files.remove(file)
                 attempts += 1
-                # corrupted_files = self.combine_clean_comtrade_commodity_year(year)
-            # remove corrupted files from raw data
-            logging.info(
-                f"download failed, removing from raw downloaded folder {corrupted_files}"
-            )
-            if corrupted_files:
-                for year, reporter_codes in corrupted_files.items():
-                    for reporter in reporter_codes:
-                        year_path = os.path.join(self.raw_files_path, str(year))
-                        for f in glob.glob(
-                            os.path.join(
-                                year_path, f".*{re.escape(reporter_codes)}*.*\.gz"
-                            )
-                        ):
-                            logging.info(
-                                "moving {f} to corrupted folder for further review"
-                            )
-                            shutil.move(
-                                os.path.join(year_path, f),
-                                os.path.join(self.output_dir, "corrupted", f),
-                            )
-            if corrupted:
-                # combine clean comtrade commodity year data after removing remaining corrupted files
-                corrupted_files = self.combine_clean_comtrade_commodity_year(year)
-
+            for f in corrupted_files:
+                logging.info(
+                    f"download failed, removing from raw downloaded folder {f}"
+                )
+                year = corrupted.split("/")[-1][20:24]
+                reporter_code = corrupted.split("/")[-1][17:20]
+                year_path = os.path.join(self.raw_files_path, year)
+                logging.info(f"year path: {year_path}")
+                # place in a corrupted files folder for follow-up with comtrade
+                shutil.move(
+                    os.path.join(year_path, f),
+                    os.path.join(self.output_dir, "corrupted", f),
+                )
             # logging.info(f"Cleaning up year {year}.")
             # if self.delete_tmp_files:
             #     self.remove_tmp_dir(year_path)
@@ -443,7 +419,7 @@ class ComtradeDownloader(object):
         dfs = []
 
         year_path = os.path.join(self.raw_files_path, str(year))
-        corrupted_files = {}
+        corrupted_files = set()
         for f in glob.glob(os.path.join(year_path, "*.gz")):
             try:
                 df = pd.read_csv(
@@ -465,9 +441,9 @@ class ComtradeDownloader(object):
 
             except EOFError as e:
                 logging.info("downloaded corrupted file: ", f)
-                year = str(f[20:24])
-                reporter_code = f[17:20]
-                corrupted_files[year] = corrupted_files.get(year, []) + [reporter_code]
+                corrupted_files.add(f)
+                # year = f.split("/")[-1][20:24]
+                # reporter_code = f.split("/")[-1][17:20]
 
         if corrupted_files:
             return corrupted_files
