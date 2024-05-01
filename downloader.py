@@ -174,7 +174,7 @@ class ComtradeDownloader(object):
 
         df.to_csv(
             os.path.join(
-                self.output_dir, output, f"comtrade_HS_totals.{self.file_extension}"
+                self.output_dir, 'output', f"comtrade_HS_totals.{self.file_extension}"
             ),
             index=False,
         )
@@ -269,9 +269,9 @@ class ComtradeDownloader(object):
                 corrupted = True
                 logging.info(f"Found corrupted files")
                 for corrupted_file in corrupted_files:
-                    year = corrupted.split("/")[-1][20:24]
-                    reporter_code = corrupted.split("/")[-1][17:20]
-                    logging.info(f"... requesting from api {year}-{reporter_codes}.")
+                    year = corrupted_file.split("/")[-1][20:24]
+                    reporter_code = corrupted_file.split("/")[-1][17:20]
+                    logging.info(f"... requesting from api {year}-{reporter_code}.")
                     comtradeapicall.bulkDownloadFinalFile(
                         self.api_key,
                         year_path,
@@ -295,7 +295,7 @@ class ComtradeDownloader(object):
                         remove_from_corrupted.add(corrupted_file)
                     except:
                         logging.info(
-                            f"{f} on attempt {attempts} after initial failure  is still corrupted"
+                            f"{corrupted_file} on attempt {attempts} after initial failure  is still corrupted"
                         )
                         continue
                 for file in remove_from_corrupted:
@@ -306,15 +306,12 @@ class ComtradeDownloader(object):
                 logging.info(
                     f"download failed, removing from raw downloaded folder {f}"
                 )
-                year = corrupted.split("/")[-1][20:24]
-                reporter_code = corrupted.split("/")[-1][17:20]
-                year_path = os.path.join(self.raw_files_path, year)
-                logging.info(f"year path: {year_path}")
+                # year = f.split("/")[-1][20:24]
+                # reporter_code = f.split("/")[-1][17:20]
+                # year_path = os.path.join(self.raw_files_path, year)
+                # logging.info(f"year path: {year_path}")
                 # place in a corrupted files folder for follow-up with comtrade
-                shutil.move(
-                    os.path.join(year_path, f),
-                    os.path.join(self.output_dir, "corrupted", f),
-                )
+                shutil.move(f, os.path.join(self.output_dir, "corrupted", f.split('/')[-1]))
             # logging.info(f"Cleaning up year {year}.")
             # if self.delete_tmp_files:
             #     self.remove_tmp_dir(year_path)
@@ -490,7 +487,7 @@ class ComtradeDownloader(object):
         logging.info(f"Saving transformed data file for {year}.")
         df.to_csv(
             os.path.join(
-                self.output_dir,
+                self.output_dir, 'output',
                 f"comtrade_{self.classification_code}_{year}.{self.file_extension}",
             ),
             index=False,

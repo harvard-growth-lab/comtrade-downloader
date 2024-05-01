@@ -1,13 +1,106 @@
+INFO:root:For H0 - 2010 180 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2010 files updated since 2024-04-06.
+INFO:root:Completed apicall for year 2010.
+INFO:root:No updated reports were downloaded
+INFO:root:Generated download report for 2010.
+INFO:root:Filtering and exporting data for year 2010.
+INFO:root:Saving transformed data file for 2010.
+INFO:root:For H0 - 2011 178 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2011 files updated since 2024-04-06.
+INFO:root:Completed apicall for year 2011.
+INFO:root:No updated reports were downloaded
+INFO:root:Generated download report for 2011.
+INFO:root:Filtering and exporting data for year 2011.
+INFO:root:Saving transformed data file for 2011.
+INFO:root:For H0 - 2012 175 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2012 files updated since 2024-04-12.
+INFO:root:Completed apicall for year 2012.
+INFO:root:No updated reports were downloaded
+INFO:root:Generated download report for 2012.
+INFO:root:Filtering and exporting data for year 2012.
+INFO:root:Saving transformed data file for 2012.
+INFO:root:For H0 - 2013 177 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2013 files updated since 2024-04-13.
+INFO:root:Completed apicall for year 2013.
+INFO:root:No updated reports were downloaded
+INFO:root:Generated download report for 2013.
+INFO:root:Filtering and exporting data for year 2013.
+INFO:root:Saving transformed data file for 2013.
+INFO:root:For H0 - 2014 173 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2014 files updated since 2024-04-13.
+INFO:root:Completed apicall for year 2014.
+INFO:root:No updated reports were downloaded
+INFO:root:Generated download report for 2014.
+INFO:root:Filtering and exporting data for year 2014.
+INFO:root:Saving transformed data file for 2014.
+INFO:root:For H0 - 2015 176 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2015 files updated since 2024-04-18.
+INFO:root:Completed apicall for year 2015.
+INFO:root:No updated reports were downloaded
+INFO:root:Generated download report for 2015.
+INFO:root:Filtering and exporting data for year 2015.
+INFO:root:Saving transformed data file for 2015.
+INFO:root:For H0 - 2016 177 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2016 files updated since 2024-04-13.
+INFO:root:Completed apicall for year 2016.
+INFO:root:No updated reports were downloaded
+INFO:root:Generated download report for 2016.
+INFO:root:Filtering and exporting data for year 2016.
+INFO:root:Saving transformed data file for 2016.
+INFO:root:For H0 - 2017 177 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2017 files updated since 2024-04-14.
+INFO:root:Completed apicall for year 2017.
+INFO:root:No updated reports were downloaded
+INFO:root:Generated download report for 2017.
+INFO:root:Filtering and exporting data for year 2017.
+INFO:root:Saving transformed data file for 2017.
+INFO:root:For H0 - 2018 175 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2018 files updated since 2024-04-24.
+INFO:root:Completed apicall for year 2018.
+INFO:root:No updated reports were downloaded
+INFO:root:Generated download report for 2018.
+INFO:root:Filtering and exporting data for year 2018.
+INFO:root:Saving transformed data file for 2018.
+INFO:root:For H0 - 2019 169 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2019 files updated since 2024-04-24.
+INFO:root:Completed apicall for year 2019.
+INFO:root:No updated reports were downloaded
+INFO:root:Generated download report for 2019.
+INFO:root:Filtering and exporting data for year 2019.
+INFO:root:Saving transformed data file for 2019.
+INFO:root:For H0 - 2020 164 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2020 files updated since 2024-04-24.
+INFO:root:Completed apicall for year 2020.
+INFO:root:No updated reports were downloaded
+INFO:root:Generated download report for 2020.
+INFO:root:Filtering and exporting data for year 2020.
+INFO:root:Saving transformed data file for 2020.
+INFO:root:For H0 - 2021 164 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2021 files updated since 2024-04-25.
+INFO:root:Completed apicall for year 2021.
+INFO:root:No updated reports were downloaded
+INFO:root:Generated download report for 2021.
+INFO:root:Filtering and exporting data for year 2021.
+INFO:root:Saving transformed data file for 2021.
+INFO:root:For H0 - 2022 147 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2022 files updated since 2024-04-25.
+INFO:root:Completed apicall for year 2022.
+INFO:root:Replacing any outdated raw files with latest data
+INFO:root:Generated download report for 2022.
+INFO:root:Filtering and exporting data for year 2022.
+INFO:root:Saving transformed data file for 2022.
+INFO:root:For H0 - 2023 84 country reporter files are downloaded
+INFO:root:Downloading reporter H0 - 2023 files updated since 2024-04-26.
+INFO:root:Completed apicall for year 2023.
+INFO:root:Replacing any outdated raw files with latest data
+INFO:root:Generated download report for 2023.
+INFO:root:Filtering and exporting data for year 2023.
+INFO:root:Saving transformed data file for 2023.
 Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-  File "/n/holystore01/LABS/hausmann_lab/lab/atlas/comtrade_download/downloader.py", line 464
-    dfs.append(df)
-    ^
-SyntaxError: invalid syntax
-Traceback (most recent call last):
-  File "/n/hausmann_lab/lab/atlas/comtrade_download/download_latest.py", line 3, in <module>
-    from downloader import ComtradeDownloader, API_KEYS
-  File "/n/holystore01/LABS/hausmann_lab/lab/atlas/comtrade_download/downloader.py", line 464
-    dfs.append(df)
-    ^
-SyntaxError: invalid syntax
+  File "/n/hausmann_lab/lab/atlas/comtrade_download/download_latest.py", line 99, in <module>
+    main()
+  File "/n/hausmann_lab/lab/atlas/comtrade_download/download_latest.py", line 43, in main
+    downloader_hs92.download_comtrade_bilateral_totals()
+  File "/n/holystore01/LABS/hausmann_lab/lab/atlas/comtrade_download/downloader.py", line 162, in download_comtrade_bilateral_totals
+    year_data = year_data.rename(
+AttributeError: 'NoneType' object has no attribute 'rename'
