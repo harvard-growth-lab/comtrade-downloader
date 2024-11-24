@@ -316,7 +316,7 @@ class ComtradeDownloader(object):
                         freqCode="A",
                         clCode=self.classification_code,
                         period=year,
-                        reporterCode=[reporter_code],
+                        reporterCode=reporter_code,
                         decompress=False,
                     )
                     # attempt to read in all re-downloaded file using reporter code
@@ -346,8 +346,8 @@ class ComtradeDownloader(object):
                     )
                     shutil.move(f, os.path.join(self.output_dir, "corrupted", f.split('/')[-1]))
                     
-            if self.file_format not in ['gzip', 'csv']:
-                self.output_requested_format(year_path)
+            # if self.file_format not in ['gzip', 'csv']:
+            #     self.output_requested_format(year_path)
 
     def get_date_of_last_download(self, year):
         """
@@ -588,15 +588,15 @@ class ComtradeDownloader(object):
         del report
         
         
-    def output_requested_format(self, year_path) -> None:
-        files = glob.glob(year_path)
-        df = pd.read_csv(self.input_path, compression='gzip', sep='\t')
-        if self.file_format == 'parquet':
-            df.to_parquet(self.output_path, compression='snappy')
-        elif self.file_format == 'dta':
-            df.to_stata(self.output_path, compression='gzip')
-        elif self.file_format not in ['parquet', 'csv', 'dta']:
-            raise ValueError(f"Unsupported file format: {self.file_format}")
+    # def output_requested_format(self, year_path) -> None:
+    #     files = glob.glob(year_path)
+    #     df = pd.read_csv(self.input_path, compression='gzip', sep='\t')
+    #     if self.file_format == 'parquet':
+    #         df.to_parquet(self.output_path, compression='snappy')
+    #     elif self.file_format == 'dta':
+    #         df.to_stata(self.output_path, compression='gzip')
+    #     elif self.file_format not in ['parquet', 'csv', 'dta']:
+    #         raise ValueError(f"Unsupported file format: {self.file_format}")
 
 
     def remove_tmp_dir(self, tmp_path):
