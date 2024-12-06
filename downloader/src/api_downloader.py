@@ -16,6 +16,8 @@ import re
 import time
 from datetime import date, timedelta, datetime
 import logging
+from src.comtrade_file import ComtradeFile
+from pathlib import Path
 
 class ComtradeDownloader(object):
     columns = {
@@ -136,11 +138,9 @@ class ComtradeDownloader(object):
     
     def validate_inputs(self):
         """Validate configuration values"""
-        
-        # api
         if not self.api_key:
             raise ValueError(f"Requires an API KEY for Comtrade")
-        # Validate years
+
         start_year, end_year = self.years[0], self.years[-1]
         if not 1962 <= start_year <= datetime.now().year:
             raise ValueError(f"Invalid start_year: {start_year}")
@@ -149,65 +149,37 @@ class ComtradeDownloader(object):
         if start_year > end_year:
             raise ValueError(f"start_year ({start_year}) must be <= end_year ({end_year})")
                 
-        # Validate file format
         if self.file_format not in ['parquet', 'csv', 'dta']:
             raise ValueError(f"Unsupported file format: {self.file_format}")
-
         os.makedirs(self.output_dir, exist_ok=True)
     
     def setup_logger(self, log_level) -> logging.Logger:
-        """Setup and configure logger"""
-        # Create logger instance
         logger = logging.getLogger('ComtradeDownloader')
         logger.setLevel(log_level)
         return logger
     
+    
+#     def execute_download(self):
+#         for year in self.years:
+#             self.logger.info(f"Downloading Comtrade Files for year: {year}")
+#             last_updated = self.get_last_download_date(year)
+#             year_path = self.get_year_path(year, last_updated)
 
-    def download_comtrade_bilateral_totals(self):
-        """ """
-        dfs = []
+#             if self._download_files(year_path, year, last_updated):
+#                self._process_files(year_path, year, last_updated)
+#                corrupted_files = self._handle_corrupted_files(year)
 
-        for year in self.years:
-            year_data = comtradeapicall.getFinalData(
-                self.api_key,
-                typeCode="C",
-                freqCode="A",
-                clCode=self.classification_code,
-                period=str(year),
-                reporterCode=None,
-                cmdCode="TOTAL",
-                breakdownMode='classic',
-                flowCode=None,
-                partnerCode=None,
-                # update for classic mode
-                partner2Code=None,
-                customsCode="C00",
-                motCode=0,
-            )
-            try:
-                year_data = year_data.rename(
-                    columns={"cifvalue": "CIFValue", "fobvalue": "FOBValue"}
-                )
-                year_data = year_data[self.columns.keys()]
-            except:
-                year_data = pd.DataFrame(columns=self.columns.keys())
+#                if not corrupted_files:
+#                    df = self._transform_data(year)
+#                    self._save_data(df, year)
+#                else:
+#                    self._handle_remaining_corrupted(corrupted_files)
+    
+#     def get_year_path(self, year: int, last_updated: Optional[str]) -> Path:
+#         return (self.latest_path if last_updated else self.raw_files_path) / str(year)
 
-            dfs.append(year_data)
-            self.logger.info(f"Completed downloading Commodity Totals for {year}")
-        df = pd.concat(dfs)
 
-        # Merge reporter and partner reference tables for ISO3 codes
-        df = df.merge(self.reporters, on="reporterCode", how="left")
-        df = df.merge(self.partners, on="partnerCode", how="left")
-
-        df.to_csv(
-            os.path.join(
-                self.output_dir, 'as_reported_output', f"comtrade_HS_totals.{self.file_extension}"
-            ),
-            index=False,
-        )
-        self.logger.info("Completed downloading Commodity Totals for {}".format(self.years))
-
+    
     def download_comtrade_yearly_bilateral_flows(self):
         """ """
 
@@ -222,8 +194,8 @@ class ComtradeDownloader(object):
 
         reporter_codes = []
         for year in self.years:
-            last_updated = self.get_date_of_last_download(year)
-            if last_updated is not None and not self.force_full_download:
+            last_updated = self.get_last_download_date(year)
+            if last_updated > datetime(1900, 1, 1) and not self.force_full_download:
                 updated_reporters = self.get_reporters_by_data_availability(
                     year, last_updated
                 )
@@ -342,38 +314,26 @@ class ComtradeDownloader(object):
             df = self.transform_data(year)
             self.save_combined_comtrade_year(df, year)
 
-    def get_date_of_last_download(self, year):
+    def get_last_download_date(self, year):
         """
         Get information about last date raw files for the classification code
         and year were last downloaded
         """
-        raw_file_by_year_path = os.path.join(self.raw_files_path, str(year))
-        raw_file_names = []
-        if os.path.exists(raw_file_by_year_path):
-            raw_file_names = os.listdir(raw_file_by_year_path)
-            filtered_files = [
-                file for file in raw_file_names if not file.startswith(".")
-            ]
-            number_files = len(filtered_files)
+        year_path = Path(self.raw_files_path) / str(year)
+        min_date = datetime(1900, 1, 1)
+        if not year_path.exists():
+            return min_date
+        
+        files = list(year_path.glob("*.gz"))
+        if not files:
+            return min_date
+        
+        self.logger.info(f"{self.classification_code} - {year}: {len(files)} reporter files found")
+        comtrade_files = [ComtradeFile(f) for f in files]
+        latest_date = max(file.published_date for file in comtrade_files)
+        return latest_date
 
-            if number_files > 0:
-                self.logger.info(
-                    f"For {self.classification_code} - {year} {number_files} country reporter files are downloaded"
-                )
-                latest_updated_date = "0000-00-00"
-                for file in glob.glob(os.path.join(raw_file_by_year_path, "*.gz")):
-                    # from file title, char 27:37 extract most recently updated date
-                    updated_date = file[-14:-4]
-                    if updated_date > latest_updated_date:
-                        latest_updated_date = updated_date
-                date = latest_updated_date.split("-")
-                latest_date = datetime(int(date[0]), int(date[1]), int(date[2]))
-                latest_date = latest_date + timedelta(1)
-                return str(latest_date).split(" ")[0]
-        else:
-            latest_date = None
-            return latest_date
-
+        
     def get_reporters_by_data_availability(self, year, latest_date):
         df = comtradeapicall.getFinalClassicDataBulkAvailability(
             self.api_key,
@@ -521,91 +481,6 @@ class ComtradeDownloader(object):
 
         del df
 
-
-    
-#     def combine_clean_comtrade_commodity_year(self, year):
-#         """ """
-#         dfs = []
-
-#         year_path = os.path.join(self.raw_files_path, str(year))
-#         corrupted_files = set()
-#         for col in ['partner2Code', 'motCode', 'customsCode', 'mosCode']:
-#             self.columns.pop(col, None)   
-#         for f in glob.glob(os.path.join(year_path, "*.gz")):
-#             try:
-#                 df = pd.read_csv(
-#                     f,
-#                     sep="\t",
-#                     compression="gzip",
-#                     usecols=list(self.columns.keys()),
-#                     dtype=self.columns,
-#                 )
-
-#                 if self.drop_world_partner:
-#                     df = df[df.partnerCode != 0]
-#                 dfs.append(df)
-
-#             except EOFError as e:
-#                 self.logger.info(f"downloaded corrupted file: {f}")
-#                 corrupted_files.add(f)
-#                 # year = f.split("/")[-1][20:24]
-#                 # reporter_code = f.split("/")[-1][17:20]
-#             except pd.errors.EmptyDataError as e:
-#                 self.logger.info(f"downloaded empty file: {f}")
-#                 corrupted_files.add(f)
-
-#         if corrupted_files:
-#             return corrupted_files
-
-#         try:
-#             df = pd.concat(dfs)
-
-#             # Merge reporter and partner reference tables for ISO3 codes
-#             df = df.merge(self.reporters, on="reporterCode", how="left")
-#             df = df.merge(self.partners, on="partnerCode", how="left")
-
-#             if self.partner_iso3_codes:
-#                 df = df[df.partnerISO3.isin(self.partner_iso3_codes)]
-
-#             if not self.drop_secondary_partners:
-#                 df = df.merge(
-#                     self.partners.rename(
-#                         columns={
-#                             "partnerCode": "partner2Code",
-#                             "partnerISO3": "partner2ISO3",
-#                         }
-#                     ),
-#                     on="partner2Code",
-#                     how="left",
-#                 )
-#         except:
-#             df = pd.DataFrame()
-#             self.logger.info(f"No data was downloaded for {year}")
-#             return
-        
-#         import pdb
-#         pdb.set_trace()
-
-#         self.logger.info(f"Saving transformed data file for {year}.")
-#         df.to_csv(
-#             os.path.join(
-#                 self.output_dir, 'as_reported_output',
-#                 f"comtrade_{self.classification_code}_{year}.{self.file_extension}",
-#             ),
-#             index=False,
-#         )
-        
-#         df.to_parquet(
-#             os.path.join(
-#                 self.output_dir, 'as_reported_output',
-#                 f"comtrade_{self.classification_code}_{year}.parquet",
-#             ), compression='zippy',
-#             index=False,
-#         )
-
-
-#         del df
-#         return {}
 
     def generate_comtrade_commodity_download_report(self, year_path, replaced_files):
         """
