@@ -2,3 +2,8 @@ downloader/.comtrade_api_key
 downloader/.comtrade_api_key
 downloader/.comtrade_api_key.swp
 *.swp
+
+*.ipynb_checkpoints*
+*.cpython-38.pyc
+*py.checkpoint
+*.pyc

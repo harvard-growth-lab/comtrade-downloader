@@ -24,8 +24,8 @@ def main():
         classification_code='HS',  # generates all as reported classifications
         file_format='parquet',
         log_level='INFO',
-        start_year=2021, #1960,
-        end_year=2022, #datetime.now().year,
+        start_year=2018, #1960,
+        end_year=2020, #datetime.now().year,
         reporter_iso3_codes=[],
         partner_iso3_codes=[],
         commodity_codes=[],

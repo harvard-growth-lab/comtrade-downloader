@@ -23,12 +23,12 @@ class ComtradeDownloader(object):
         "reporterCode": "int16",
         "flowCode": "category",
         "partnerCode": "int16",
-        "partner2Code": "int16",
+        # "partner2Code": "int16",
         "classificationCode": "string",
         "cmdCode": "string",
-        "customsCode": "string",
-        "mosCode": "int16",
-        "motCode": "int16",
+        # "customsCode": "string",
+        # "mosCode": "int16",
+        # "motCode": "int16",
         "qtyUnitCode": "int8",
         "qty": "float64",
         "isQtyEstimated": "int8",
@@ -202,17 +202,10 @@ class ComtradeDownloader(object):
 
         df.to_csv(
             os.path.join(
-                self.output_dir, 'output', f"comtrade_HS_totals.{self.file_extension}"
+                self.output_dir, 'as_reported_output', f"comtrade_HS_totals.{self.file_extension}"
             ),
             index=False,
         )
-        # df.to_parquet(
-        #     os.path.join(
-        #         self.output_dir, 'output_parquet', f"comtrade_HS_totals.parquet"
-        #     ),
-        #     index=False,
-        # )
-
         self.logger.info("Completed downloading Commodity Totals for {}".format(self.years))
 
     def download_comtrade_yearly_bilateral_flows(self):
@@ -298,7 +291,7 @@ class ComtradeDownloader(object):
             self.logger.info(f"Generated download report for {year}.")
 
             self.logger.info(f"Filtering and exporting data for year {year}.")
-            corrupted_files = self.combine_clean_comtrade_commodity_year(year)
+            corrupted_files = self.find_corrupt_files(year)
             attempts = 1
             remove_from_corrupted = set()
             corrupted = False
@@ -306,8 +299,8 @@ class ComtradeDownloader(object):
                 corrupted = True
                 logging.info(f"Found corrupted files")
                 for corrupted_file in corrupted_files:
-                    year = corrupted_file.split("/")[-1][20:24]
-                    reporter_code = corrupted_file.split("/")[-1][17:20]
+                    year = corrupted_file.split("/")[-1][27:31]
+                    reporter_code = corrupted_file.split("/")[-1][24:27]
                     self.logger.info(f"... requesting from api {year}-{reporter_code}.")
                     comtradeapicall.bulkDownloadFinalClassicFile(
                         self.api_key,
@@ -345,9 +338,9 @@ class ComtradeDownloader(object):
                         f"download failed, removing from raw downloaded folder {f}"
                     )
                     shutil.move(f, os.path.join(self.output_dir, "corrupted", f.split('/')[-1]))
-                    
-            # if self.file_format not in ['gzip', 'csv']:
-            #     self.output_requested_format(year_path)
+            
+            df = self.transform_data(year)
+            self.save_combined_comtrade_year(df, year)
 
     def get_date_of_last_download(self, year):
         """
@@ -446,15 +439,14 @@ class ComtradeDownloader(object):
                     self.logger.debug("Error: ", e)
         self.logger.info(f"Replacing any outdated raw files with latest data")
         return relocated_files
-
-    def combine_clean_comtrade_commodity_year(self, year):
-        """ """
+    
+    
+    def find_corrupt_files(self, year):
+        """return any empty or corrupted files."""
         dfs = []
-
         year_path = os.path.join(self.raw_files_path, str(year))
         corrupted_files = set()
-        for col in ['partner2Code', 'motCode', 'customsCode', 'mosCode']:
-            self.columns.pop(col, None)   
+
         for f in glob.glob(os.path.join(year_path, "*.gz")):
             try:
                 df = pd.read_csv(
@@ -463,70 +455,157 @@ class ComtradeDownloader(object):
                     compression="gzip",
                     usecols=list(self.columns.keys()),
                     dtype=self.columns,
+                    nrows=1
                 )
-
-                if self.drop_world_partner:
-                    df = df[df.partnerCode != 0]
-                dfs.append(df)
 
             except EOFError as e:
-                self.logger.info("downloaded corrupted file: ", f)
+                self.logger.info(f"downloaded corrupted file: {f}")
                 corrupted_files.add(f)
-                # year = f.split("/")[-1][20:24]
-                # reporter_code = f.split("/")[-1][17:20]
+
             except pd.errors.EmptyDataError as e:
-                self.logger.info("downloaded empty file: ", f)
+                self.logger.info(f"downloaded empty file: {f}")
                 corrupted_files.add(f)
+        return corrupted_files 
 
-        if corrupted_files:
-            return corrupted_files
 
-        try:
-            df = pd.concat(dfs)
-
-            # Merge reporter and partner reference tables for ISO3 codes
-            df = df.merge(self.reporters, on="reporterCode", how="left")
-            df = df.merge(self.partners, on="partnerCode", how="left")
-
-            if self.partner_iso3_codes:
-                df = df[df.partnerISO3.isin(self.partner_iso3_codes)]
-
-            if not self.drop_secondary_partners:
-                df = df.merge(
-                    self.partners.rename(
-                        columns={
-                            "partnerCode": "partner2Code",
-                            "partnerISO3": "partner2ISO3",
-                        }
-                    ),
-                    on="partner2Code",
-                    how="left",
-                )
-        except:
-            df = pd.DataFrame()
-            self.logger.info(f"No data was downloaded for {year}")
-            return
-
-        self.logger.info(f"Saving transformed data file for {year}.")
-        df.to_csv(
-            os.path.join(
-                self.output_dir, 'output',
-                f"comtrade_{self.classification_code}_{year}.{self.file_extension}",
-            ),
-            index=False,
-        )
+    def transform_data(self, year):
+        """"""
+        year_path = os.path.join(self.raw_files_path, str(year))
+        df = pd.concat((pd.read_csv(f, 
+                                    compression='gzip', 
+                                    sep='\t',
+                                    usecols=list(self.columns.keys()),
+                                    dtype=self.columns,) 
+                        for f in glob.glob(os.path.join(year_path, "*.gz"))), ignore_index=True)
         
+        # Merge reporter and partner reference tables for ISO3 codes
+        df = df.merge(self.reporters, on="reporterCode", how="left")
+        df = df.merge(self.partners, on="partnerCode", how="left")
+
+        if self.partner_iso3_codes:
+            df = df[df.partnerISO3.isin(self.partner_iso3_codes)]
+
+        if not self.drop_secondary_partners:
+            df = df.merge(
+                self.partners.rename(
+                    columns={
+                        "partnerCode": "partner2Code",
+                        "partnerISO3": "partner2ISO3",
+                    }
+                ),
+                on="partner2Code",
+                how="left",
+            )
+        return df
+
+
+    def save_combined_comtrade_year(self, df, year):
+        """"""
+        self.logger.info(f"Saving transformed data file for {year}.")
+        df.to_stata(
+            os.path.join(
+                self.output_dir, 'as_reported_output',
+                f"comtrade_{self.classification_code}_{year}.dta",
+            ),
+            write_index=False,
+        )
+
         df.to_parquet(
             os.path.join(
-                self.output_dir, 'output_parquet',
+                self.output_dir, 'as_reported_output',
                 f"comtrade_{self.classification_code}_{year}.parquet",
-            ), compression='zippy',
+            ), 
+            compression='snappy',
             index=False,
         )
 
-
         del df
-        return {}
+
+
+    
+#     def combine_clean_comtrade_commodity_year(self, year):
+#         """ """
+#         dfs = []
+
+#         year_path = os.path.join(self.raw_files_path, str(year))
+#         corrupted_files = set()
+#         for col in ['partner2Code', 'motCode', 'customsCode', 'mosCode']:
+#             self.columns.pop(col, None)   
+#         for f in glob.glob(os.path.join(year_path, "*.gz")):
+#             try:
+#                 df = pd.read_csv(
+#                     f,
+#                     sep="\t",
+#                     compression="gzip",
+#                     usecols=list(self.columns.keys()),
+#                     dtype=self.columns,
+#                 )
+
+#                 if self.drop_world_partner:
+#                     df = df[df.partnerCode != 0]
+#                 dfs.append(df)
+
+#             except EOFError as e:
+#                 self.logger.info(f"downloaded corrupted file: {f}")
+#                 corrupted_files.add(f)
+#                 # year = f.split("/")[-1][20:24]
+#                 # reporter_code = f.split("/")[-1][17:20]
+#             except pd.errors.EmptyDataError as e:
+#                 self.logger.info(f"downloaded empty file: {f}")
+#                 corrupted_files.add(f)
+
+#         if corrupted_files:
+#             return corrupted_files
+
+#         try:
+#             df = pd.concat(dfs)
+
+#             # Merge reporter and partner reference tables for ISO3 codes
+#             df = df.merge(self.reporters, on="reporterCode", how="left")
+#             df = df.merge(self.partners, on="partnerCode", how="left")
+
+#             if self.partner_iso3_codes:
+#                 df = df[df.partnerISO3.isin(self.partner_iso3_codes)]
+
+#             if not self.drop_secondary_partners:
+#                 df = df.merge(
+#                     self.partners.rename(
+#                         columns={
+#                             "partnerCode": "partner2Code",
+#                             "partnerISO3": "partner2ISO3",
+#                         }
+#                     ),
+#                     on="partner2Code",
+#                     how="left",
+#                 )
+#         except:
+#             df = pd.DataFrame()
+#             self.logger.info(f"No data was downloaded for {year}")
+#             return
+        
+#         import pdb
+#         pdb.set_trace()
+
+#         self.logger.info(f"Saving transformed data file for {year}.")
+#         df.to_csv(
+#             os.path.join(
+#                 self.output_dir, 'as_reported_output',
+#                 f"comtrade_{self.classification_code}_{year}.{self.file_extension}",
+#             ),
+#             index=False,
+#         )
+        
+#         df.to_parquet(
+#             os.path.join(
+#                 self.output_dir, 'as_reported_output',
+#                 f"comtrade_{self.classification_code}_{year}.parquet",
+#             ), compression='zippy',
+#             index=False,
+#         )
+
+
+#         del df
+#         return {}
 
     def generate_comtrade_commodity_download_report(self, year_path, replaced_files):
         """
