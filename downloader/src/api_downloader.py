@@ -225,7 +225,7 @@ class ComtradeDownloader(object):
                                 # updated reporter codes to match classic
                                 reporterCode=None,
                                 decompress=False,
-                                publishedDateFrom=last_updated
+                                publishedDateFrom=last_updated.strftime("%Y-%m-%d")
                                 # publishedDateTo='2018-01-01'
                             )
                     else:
@@ -239,7 +239,7 @@ class ComtradeDownloader(object):
                             # updated reporter codes to match classic
                             reporterCode=None,
                             decompress=False,
-                            publishedDateFrom=last_updated
+                            publishedDateFrom=last_updated.strftime("%Y-%m-%d")
                             # publishedDateTo='2018-01-01'
                         )
                     self.logger.info(f"Completed apicall for year {year}.")
@@ -251,17 +251,12 @@ class ComtradeDownloader(object):
                 except KeyError as e:
                     self.logger.info(f"An error occurred: {str(e)}")
 
-            if last_updated is not None and not self.force_full_download:
-                relocated_files = self.replace_raw_files_with_updated_reports(
-                    year, year_path
-                )
-                self.generate_comtrade_commodity_download_report(
+            relocated_files = [] if last_updated is None or self.force_full_download else self.replace_raw_files_with_updated_reports(year, year_path)        
+            
+            self.generate_download_report(
                     year_path, relocated_files
                 )
-            else:
-                self.generate_comtrade_commodity_download_report(year_path, [])
             self.logger.info(f"Generated download report for {year}.")
-
             self.logger.info(f"Filtering and exporting data for year {year}.")
             corrupted_files = self.find_corrupt_files(year)
             attempts = 1
@@ -271,8 +266,8 @@ class ComtradeDownloader(object):
                 corrupted = True
                 logging.info(f"Found corrupted files")
                 for corrupted_file in corrupted_files:
-                    year = corrupted_file.split("/")[-1][27:31]
-                    reporter_code = corrupted_file.split("/")[-1][24:27]
+                    year = ComtradeFile(corrupted_file).year
+                    reporter_code = ComtradeFile(corrupted_file).reporter_code
                     self.logger.info(f"... requesting from api {year}-{reporter_code}.")
                     comtradeapicall.bulkDownloadFinalClassicFile(
                         self.api_key,
@@ -344,61 +339,47 @@ class ComtradeDownloader(object):
             reporterCode=None,
         )
         if df.empty:
-            return {}
+            return []
         else:
-            df_since_download = df[df["timestamp"] > str(latest_date)]
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            df_since_download = df[df['timestamp'].dt.date > latest_date.date()]
             reporter_codes = df_since_download["reporterCode"].unique()
+            import pdb
+            pdb.set_trace()
             return reporter_codes
 
     def replace_raw_files_with_updated_reports(self, year, year_path):
         """ """
-        relocated_files = []
-        updated_file_names = os.listdir(year_path)
-        if not updated_file_names:
-            return relocated_files
+        # most recently downloaded files
+        updated_files = list(Path(year_path).glob("*.gz"))
+        if not updated_files:
+            return []
 
-        raw_file_by_year_path = os.path.join(self.raw_files_path, str(year))
-        raw_file_names = os.listdir(raw_file_by_year_path)
+        raw_year_path = Path(self.raw_files_path) / str(year)
+        archive_path = Path(self.archived_path) / str(year)
+        archive_path.mkdir(parents=True, exist_ok=True)
+        
+        relocated = []
+        raw_files_map = {ComtradeFile(f).reporter_code: f for f in raw_year_path.glob("*.gz")}
 
-        archive_by_year_dir = os.path.join(self.archived_path, str(year))
-
-        file_name_to_index = {
-            file_name[15:20]: index for index, file_name in enumerate(raw_file_names)
-        }
-
-        for file_name in updated_file_names:
-            self.logger.debug("file name in updated file: ", file_name)
-            latest_file = os.path.join(year_path, file_name)
+        for updated_file in updated_files:
+            self.logger.debug("updated file: ", updated_file)
+            updated = ComtradeFile(updated_file)
             try:
-                outdated_file_name = raw_file_names[
-                    file_name_to_index[file_name[15:20]]
-                ]
-                self.logger.debug("file to replace: ", outdated_file_name)
-                outdated_file = os.path.join(raw_file_by_year_path, outdated_file_name)
-            except:
-                # add the data to the raw output file
-                outdated_file = None
-                self.logger.debug("not in raw file", file_name)
-
-            try:
-                shutil.move(latest_file, raw_file_by_year_path)
-                self.logger.debug(f"moved {latest_file} over")
-                relocated_files.append(latest_file)
+                if outdated_file := raw_files_map.get(updated.reporter_code):
+                    shutil.move(outdated_file, archive_path)
+                    relocated.append(outdated_file)
             except shutil.Error as e:
-                self.logger.debug(f"did not move over {latest_file}")
-
-            if not os.path.exists(archive_by_year_dir):
-                os.makedirs(archive_by_year_dir)
-
-            if outdated_file:
-                try:
-                    shutil.move(outdated_file, archive_by_year_dir)
-                    self.logger.debug(f"archiving {outdated_file}")
-                    relocated_files.append(outdated_file)
-                except shutil.Error as e:
-                    self.logger.debug("Error: ", e)
-        self.logger.info(f"Replacing any outdated raw files with latest data")
-        return relocated_files
+                self.logger.error(f"Failed to move {outdated_file}: {e}")
+            try:
+                shutil.move(updated_file, raw_year_path)
+                relocated.append(updated_file)
+            except shutil.Error as e:
+                self.logger.error(f"Failed to move {updated_file}: {e}")
+        
+        self.logger.info(f"Replaced outdated raw files with latest data")
+        self.logger.info(f"These reporters updated their data {ComtradeFile(file).reporter for file in relocated}")
+        return relocated
     
     
     def find_corrupt_files(self, year):
@@ -430,7 +411,7 @@ class ComtradeDownloader(object):
 
     def transform_data(self, year):
         """"""
-        year_path = os.path.join(self.raw_files_path, str(year))
+        year_path = Path(self.raw_files_path) / str(year)
         df = pd.concat((pd.read_csv(f, 
                                     compression='gzip', 
                                     sep='\t',
@@ -481,66 +462,37 @@ class ComtradeDownloader(object):
 
         del df
 
+    def generate_download_report(self, year_path: Path, replaced_files: list[Path]) -> None:
+        """Generate detailed download report with file and processing metadata."""
 
-    def generate_comtrade_commodity_download_report(self, year_path, replaced_files):
-        """
-        Generates a download log report as a csv
-        """
+        report_data = {
+           'report_time': datetime.now(),
+           'classification': self.classification_code,
+           'files': []
+        }
 
-        data = []
+        for file in Path(year_path).glob("*.gz"):
+           comtrade_file = ComtradeFile(file)
+           file_data = {
+               'reporter_code': comtrade_file.reporter_code,
+               'published_date': comtrade_file.published_date,
+               'year': comtrade_file.year,
+               'file_size': file.stat().st_size,
+               'replaced': file in replaced_files,
+               'status': 'replaced' if file in replaced_files else 'new'
+           }
+           report_data['files'].append(file_data)
+
+        df = pd.DataFrame(report_data['files'])
+        df['download_time'] = report_data['report_time']
+        df['classification'] = report_data['classification'] 
 
         try:
-            report = pd.read_csv(self.download_report_path)
-        except:
-            report = None
-
-        download_time = time.gmtime()
-        if not replaced_files:
-            for f in glob.glob(os.path.join(year_path, "*.gz")):
-                m = re.match(
-                    # updated for CLASSIC
-                    "COMTRADE-FINALCLASSIC-CA(?P<reporterCode>\d{3})(?P<year>\d{4})"
-                    "(?P<classificationCode>\w+)"
-                    "\[(?P<lastUpdateYear>\d{4})-(?P<lastUpdateMonth>\d{2})-"
-                    "(?P<lastUpdateDay>\d{2})\]\.gz",
-                    f.split("/")[-1],
-                )
-                data.append(m.groupdict())
-        else:
-            for file in replaced_files:
-                m = re.match(
-                    "COMTRADE-FINALCLASSIC-CA(?P<reporterCode>\d{3})(?P<year>\d{4})"
-                    "(?P<classificationCode>\w+)"
-                    "\[(?P<lastUpdateYear>\d{4})-(?P<lastUpdateMonth>\d{2})-"
-                    "(?P<lastUpdateDay>\d{2})\]\.gz",
-                    file.split("/")[-1],
-                )
-                data.append(m.groupdict())
-                
-        df = pd.DataFrame(data)
-        if df.empty:
-            self.logger.info("No updated reports were downloaded")
-        else:
-            df["lastUpdate"] = pd.to_datetime(
-                df[["lastUpdateYear", "lastUpdateMonth", "lastUpdateDay"]].rename(
-                    columns={
-                        "lastUpdateYear": "year",
-                        "lastUpdateMonth": "month",
-                        "lastUpdateDay": "day",
-                    }
-                )
-            )
-            df = df.drop(columns=["lastUpdateYear", "lastUpdateMonth", "lastUpdateDay"])
-            df["downloadTime"] = time.strftime("%Y-%m-%d %H:%M:%S", download_time)
-
-        if report is not None:
-            report = pd.concat([report, df])
-        else:
-            report = df
-
-        report.to_csv(self.download_report_path, index=False)
-        del report
-        
+           existing = pd.read_csv(self.download_report_path)
+           df = pd.concat([existing, df], ignore_index=True)
+        except FileNotFoundError:
+           pass
+        df.to_csv(self.download_report_path, index=False)        
         
     # def output_requested_format(self, year_path) -> None:
     #     files = glob.glob(year_path)

@@ -20,6 +20,7 @@ class ComtradeFile:
         for pattern in patterns:
             match = re.match(pattern, self.name)
             if match:
+                self.match = match
                 self.reporter_code = match.group("reporter")
                 self.year = int(match.group("year"))
                 self.classification = match.group("classification") 
