@@ -1,6 +1,7 @@
 # intiates downloader objects for Comtrade Classification (HS12, HS92, SITC)
 
 from src.api_downloader import ComtradeDownloader
+from src.configure_downloader import ComtradeConfig
 import requests
 import pandas as pd
 import requests
@@ -18,11 +19,12 @@ import logging
 def main():
     
     # download as reported data
-    downloader_HS = ComtradeDownloader(
+    config_HS = ComtradeConfig(
         api_key=os.environ.get('ELLIE_API_KEY'),
         output_dir="/n/hausmann_lab/lab/atlas/data/",
+        requested_data='as_reported', #options as_reported, "by_classification"
         classification_code='HS',  # generates all as reported classifications
-        file_format='parquet',
+        # file_format='parquet',
         log_level='INFO',
         start_year=2022, #1960,
         end_year=2022, #datetime.now().year,
@@ -40,8 +42,8 @@ def main():
         suppress_print=False,
         force_full_download=False,
     )
-
-    # Call the method
+    
+    downloader_HS = ComtradeDownloader(config_HS)
     downloader_HS.download_comtrade_yearly_bilateral_flows()
 
 

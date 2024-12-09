@@ -1,16 +1,13 @@
-from dataclasses import dataclass
 from pathlib import Path
 import regex as re
 from datetime import datetime
 
 
-@dataclass
 class ComtradeFile:
     """Parses and stores Comtrade file metadata."""
-    file_path: str
     
-    def __post_init__(self):
-        self.file_path = Path(self.file_path)
+    def __init__(self, file_path):
+        self.file_path = Path(file_path)
         self.name = self.file_path.name
         self._parse_filename()
 
