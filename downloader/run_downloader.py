@@ -22,7 +22,7 @@ def main():
     config_HS = ComtradeConfig(
         api_key=os.environ.get('ELLIE_API_KEY'),
         output_dir="/n/hausmann_lab/lab/atlas/data/",
-        requested_data='as_reported', #options as_reported, "by_classification"
+        download_type='classic', #options as_reported, "by_classification"
         classification_code='HS',  # generates all as reported classifications
         # file_format='parquet',
         log_level='INFO',
@@ -42,7 +42,6 @@ def main():
         suppress_print=False,
         force_full_download=False,
     )
-    
     downloader_HS = ComtradeDownloader(config_HS)
     downloader_HS.download_comtrade_yearly_bilateral_flows()
 

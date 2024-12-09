@@ -18,23 +18,13 @@ from datetime import date, timedelta, datetime
 import logging
 from src.comtrade_file import ComtradeFile
 from src.configure_downloader import ComtradeConfig
+from src.downloader import BaseDownloader
 from pathlib import Path
-from contextlib import contextmanager, nullcontext
 
 class ComtradeDownloader(object):
 
     def __init__(self, config: ComtradeConfig):
         self.config = config
-        
-    @contextmanager
-    def suppress_stdout(self):
-        with open(os.devnull, 'w') as devnull:
-            old_stdout = sys.stdout
-            sys.stdout = devnull
-            try:
-                yield
-            finally:
-                sys.stdout = old_stdout
 
     
     def download_comtrade_yearly_bilateral_flows(self):
@@ -46,44 +36,48 @@ class ComtradeDownloader(object):
                 updated_reporters = self.get_reporters_by_data_availability(
                     year, last_updated
                 )
-                year_path = os.path.join(self.config.latest_path, str(year))
+                year_path = Path(self.config.latest_path / str(year))
                 self.config.logger.info(
                     f"Downloading reporter {self.config.classification_code} - {year} "
                     f"files updated since {last_updated}."
                 )
             else:
                 last_updated = datetime(1900, 1, 1)
-                year_path = os.path.join(self.config.raw_files_path, str(year))
+                year_path = Path(self.config.raw_files_path / str(year))
                 self.config.logger.info(f"Downloading all {self.config.classification_code} - {year}.")
-            os.makedirs(year_path, exist_ok=True)
-            max_retries = 5
-            attempt = 0
-            while attempt < max_retries:
-                # as-reported, by-classification
-                #APIDownloader(call_type, year_path, last_updated)
-                try:
-                    with self.suppress_stdout() if self.config.suppress_print else nullcontext():
-                        comtradeapicall.bulkDownloadFinalClassicFile(
-                            self.config.api_key,
-                            year_path,
-                            typeCode="C",
-                            freqCode="A",
-                            clCode=self.config.classification_code,
-                            period=str(year),
-                            # updated reporter codes to match classic
-                            reporterCode=None,
-                            decompress=False,
-                            publishedDateFrom=last_updated.strftime("%Y-%m-%d")
-                            # publishedDateTo='2018-01-01'
-                        )
-                    self.config.logger.info(f"Completed apicall for year {year}.")
-                    break
-                except ConnectionResetError as e:
-                    self.config.logger.info(f"Connection Reset Error: {e}")
-                    attempt += 1
-                    time.sleep(2**attempt)
-                except KeyError as e:
-                    self.config.logger.info(f"An error occurred: {str(e)}")
+            year_path.mkdir(parents=True, exist_ok=True)
+            
+            downloader = BaseDownloader.create_downloader(self.config)
+            downloader.download_with_retries(year, year_path, last_updated)
+
+            # max_retries = 5
+            # attempt = 0
+            # while attempt < max_retries:
+            #     # as-reported, by-classification
+            #     #APIDownloader(call_type, year_path, last_updated)
+            #     try:
+            #         with self.suppress_stdout() if self.config.suppress_print else nullcontext():
+            #             comtradeapicall.bulkDownloadFinalClassicFile(
+            #                 self.config.api_key,
+            #                 year_path,
+            #                 typeCode="C",
+            #                 freqCode="A",
+            #                 clCode=self.config.classification_code,
+            #                 period=str(year),
+            #                 # updated reporter codes to match classic
+            #                 reporterCode=None,
+            #                 decompress=False,
+            #                 publishedDateFrom=last_updated.strftime("%Y-%m-%d")
+            #                 # publishedDateTo='2018-01-01'
+            #             )
+            #         self.config.logger.info(f"Completed apicall for year {year}.")
+            #         break
+            #     except ConnectionResetError as e:
+            #         self.config.logger.info(f"Connection Reset Error: {e}")
+            #         attempt += 1
+            #         time.sleep(2**attempt)
+            #     except KeyError as e:
+            #         self.config.logger.info(f"An error occurred: {str(e)}")
 
             import pdb
             pdb.set_trace()

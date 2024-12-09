@@ -5,11 +5,15 @@ import logging
 
 
 class ComtradeConfig:
+    
+    REQUESTED_DATA = {"classic": "as_reported",
+                      "final": "by_classification"
+                     }
     def __init__(
        self,
        api_key: str,
        output_dir: str,
-       requested_data: str,
+       download_type: str,
        classification_code: str, 
        start_year: int,
        end_year: int,
@@ -31,7 +35,7 @@ class ComtradeConfig:
        # Required fields
         self.api_key = api_key
         self.output_dir = Path(output_dir)
-        self.requested_data = requested_data
+        self.download_type = download_type
         self.classification_code = classification_code
         self.start_year = start_year
         self.end_year = end_year
@@ -66,23 +70,23 @@ class ComtradeConfig:
 
     @property
     def latest_path(self) -> Path:
-        return self.output_dir / self.requested_data / "latest" / self.classification_code
+        return self.output_dir / self.REQUESTED_DATA[self.download_type] / "latest" / self.classification_code
 
     @property
     def raw_files_path(self) -> Path:
-        return self.output_dir / self.requested_data / "raw" / self.classification_code
+        return self.output_dir / self.REQUESTED_DATA[self.download_type] / "raw" / self.classification_code
 
     @property 
     def archived_path(self) -> Path:
-        return self.output_dir / self.requested_data / "archived" / self.classification_code
+        return self.output_dir / self.REQUESTED_DATA[self.download_type] / "archived" / self.classification_code
 
     @property
     def corrupted_path(self) -> Path:
-        return self.output_dir / self.requested_data / "corrupted"
+        return self.output_dir / self.REQUESTED_DATA[self.download_type] / "corrupted"
 
     @property
     def download_report_path(self) -> Path:
-        return self.output_dir / "atlas_download_reports" / f"download_report_{self.requested_data}_{datetime.now()}.csv"
+        return self.output_dir / "atlas_download_reports" / f"download_report_{self.REQUESTED_DATA[self.download_type]}_{datetime.now()}.csv"
 
         
     def _validate(self):
