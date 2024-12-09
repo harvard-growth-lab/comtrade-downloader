@@ -19,56 +19,26 @@ import logging
 from src.comtrade_file import ComtradeFile
 from src.configure_downloader import ComtradeConfig
 from pathlib import Path
+from contextlib import contextmanager, nullcontext
 
 class ComtradeDownloader(object):
 
     def __init__(self, config: ComtradeConfig):
         self.config = config
         
-        
-        
-
-        ###############################################################
-
-
-
-        # # Remove temporary directory
-        # if self.delete_tmp_files:
-        #     self.remove_tmp_dir(self.tmp_path)    
-    
-#     def execute_download(self):
-#         for year in self.years:
-#             self.logger.info(f"Downloading Comtrade Files for year: {year}")
-#             last_updated = self.get_last_download_date(year)
-#             year_path = self.get_year_path(year, last_updated)
-
-#             if self._download_files(year_path, year, last_updated):
-#                self._process_files(year_path, year, last_updated)
-#                corrupted_files = self._handle_corrupted_files(year)
-
-#                if not corrupted_files:
-#                    df = self._transform_data(year)
-#                    self._save_data(df, year)
-#                else:
-#                    self._handle_remaining_corrupted(corrupted_files)
-    
-#     def get_year_path(self, year: int, last_updated: Optional[str]) -> Path:
-#         return (self.latest_path if last_updated else self.raw_files_path) / str(year)
-
+    @contextmanager
+    def suppress_stdout(self):
+        with open(os.devnull, 'w') as devnull:
+            old_stdout = sys.stdout
+            sys.stdout = devnull
+            try:
+                yield
+            finally:
+                sys.stdout = old_stdout
 
     
     def download_comtrade_yearly_bilateral_flows(self):
         """ """
-
-        class HiddenPrints:
-            def __enter__(self):
-                self._original_stdout = sys.stdout
-                sys.stdout = open(os.devnull, "w")
-
-            def __exit__(self, exc_type, exc_val, exc_tb):
-                sys.stdout.close()
-                sys.stdout = self._original_stdout
-
         reporter_codes = []
         for year in self.config.years:
             last_updated = self.get_last_download_date(year)
@@ -82,7 +52,7 @@ class ComtradeDownloader(object):
                     f"files updated since {last_updated}."
                 )
             else:
-                last_updated = None
+                last_updated = datetime(1900, 1, 1)
                 year_path = os.path.join(self.config.raw_files_path, str(year))
                 self.config.logger.info(f"Downloading all {self.config.classification_code} - {year}.")
             os.makedirs(year_path, exist_ok=True)
@@ -92,22 +62,7 @@ class ComtradeDownloader(object):
                 # as-reported, by-classification
                 #APIDownloader(call_type, year_path, last_updated)
                 try:
-                    if self.suppress_print:
-                        with HiddenPrints():
-                            comtradeapicall.bulkDownloadFinalClassicFile(
-                                self.config.api_key,
-                                year_path,
-                                typeCode="C",
-                                freqCode="A",
-                                clCode=self.config.classification_code,
-                                period=str(year),
-                                # updated reporter codes to match classic
-                                reporterCode=None,
-                                decompress=False,
-                                publishedDateFrom=last_updated.strftime("%Y-%m-%d")
-                                # publishedDateTo='2018-01-01'
-                            )
-                    else:
+                    with self.suppress_stdout() if self.config.suppress_print else nullcontext():
                         comtradeapicall.bulkDownloadFinalClassicFile(
                             self.config.api_key,
                             year_path,
@@ -130,6 +85,8 @@ class ComtradeDownloader(object):
                 except KeyError as e:
                     self.config.logger.info(f"An error occurred: {str(e)}")
 
+            import pdb
+            pdb.set_trace()
             relocated_files = [] if last_updated is None or self.config.force_full_download else self.replace_raw_files_with_updated_reports(year, year_path)        
             
             self.generate_download_report(
@@ -227,35 +184,32 @@ class ComtradeDownloader(object):
 
     def replace_raw_files_with_updated_reports(self, year, year_path):
         """ """
-        # most recently downloaded files
         updated_files = list(Path(year_path).glob("*.gz"))
         if not updated_files:
             return []
 
         raw_year_path = Path(self.config.raw_files_path) / str(year)
         archive_path = Path(self.config.archived_path) / str(year)
-        archive_path.mkdir(parents=True, exist_ok=True)
-        
-        relocated = []
-        raw_files_map = {ComtradeFile(f).reporter_code: f for f in raw_year_path.glob("*.gz")}
+        archive_path.mkdir(exist_ok=True)
 
-        for updated_file in updated_files:
-            self.config.logger.debug("updated file: ", updated_file)
-            updated = ComtradeFile(updated_file)
+        relocated = []
+        raw_files = {ComtradeFile(f).reporter_code: f for f in raw_year_path.glob("*.gz")}
+
+        for updated in updated_files:
             try:
-                if outdated_file := raw_files_map.get(updated.reporter_code):
-                    shutil.move(outdated_file, archive_path)
-                    relocated.append(outdated_file)
+               # Archive existing file if present
+                if outdated := raw_files.get(ComtradeFile(updated).reporter_code):
+                    shutil.move(str(outdated), str(archive_path))
+                    relocated.append(outdated)
+
+                # Move new file to raw
+                shutil.move(str(updated), str(raw_year_path))
+                relocated.append(updated)
+
             except shutil.Error as e:
-                self.config.logger.error(f"Failed to move {outdated_file}: {e}")
-            try:
-                shutil.move(updated_file, raw_year_path)
-                relocated.append(updated_file)
-            except shutil.Error as e:
-                self.config.logger.error(f"Failed to move {updated_file}: {e}")
-        
-        self.config.logger.info(f"Replaced outdated raw files with latest data")
-        self.config.logger.info(f"These reporters updated their data {ComtradeFile(file).reporter for file in relocated}")
+                self.config.logger.error(f"Failed to move files: {e}")
+
+        self.config.logger.info("Updated raw files with latest data")
         return relocated
     
     

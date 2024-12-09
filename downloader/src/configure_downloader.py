@@ -1,0 +1,116 @@
+from pathlib import Path
+import regex as re
+from datetime import datetime
+import logging
+
+
+class ComtradeConfig:
+    def __init__(
+       self,
+       api_key: str,
+       output_dir: str,
+       requested_data: str,
+       classification_code: str, 
+       start_year: int,
+       end_year: int,
+       log_level: str,
+       reporter_iso3_codes: list,
+       partner_iso3_codes: list,
+       commodity_codes: list,
+       flow_codes: list,
+       mot_codes: list,
+       mos_codes: list,
+       customs_codes: list,
+       drop_world_partner: bool,
+       drop_secondary_partners: bool,
+       delete_tmp_files: bool,
+       compress_output: bool,
+       suppress_print: bool,
+       force_full_download: bool,
+   ):
+       # Required fields
+        self.api_key = api_key
+        self.output_dir = Path(output_dir)
+        self.requested_data = requested_data
+        self.classification_code = classification_code
+        self.start_year = start_year
+        self.end_year = end_year
+        self.years = range(start_year, end_year + 1)
+
+        # Optional fields with defaults
+        self.reporter_iso3_codes = reporter_iso3_codes or []
+        self.partner_iso3_codes = partner_iso3_codes or []
+        self.commodity_codes = commodity_codes or []
+        self.flow_codes = flow_codes or []
+        self.mot_codes = mot_codes or [0]
+        self.mos_codes = mos_codes or [0]
+        self.customs_codes = customs_codes or []
+
+        # Boolean flags
+        self.drop_world_partner = drop_world_partner or False
+        self.drop_secondary_partners = drop_secondary_partners or True
+        self.delete_tmp_files = delete_tmp_files or False
+        self.compress_output = compress_output or True
+        self.suppress_print = suppress_print or True
+        self.force_full_download = force_full_download or False
+
+        self._validate()
+        self._setup_logger(log_level)
+        self._setup_paths()
+        
+        if self.compress_output:
+            self.file_extension = "gz"
+        else:
+            self.file_extension = "csv"
+
+
+    @property
+    def latest_path(self) -> Path:
+        return self.output_dir / self.requested_data / "latest" / self.classification_code
+
+    @property
+    def raw_files_path(self) -> Path:
+        return self.output_dir / self.requested_data / "raw" / self.classification_code
+
+    @property 
+    def archived_path(self) -> Path:
+        return self.output_dir / self.requested_data / "archived" / self.classification_code
+
+    @property
+    def corrupted_path(self) -> Path:
+        return self.output_dir / self.requested_data / "corrupted"
+
+    @property
+    def download_report_path(self) -> Path:
+        return self.output_dir / "atlas_download_reports" / f"download_report_{self.requested_data}_{datetime.now()}.csv"
+
+        
+    def _validate(self):
+        if not self.api_key:
+            raise ValueError(f"Requires an API KEY for Comtrade")
+
+        start_year, end_year = self.years[0], self.years[-1]
+        if not 1962 <= start_year <= datetime.now().year:
+            raise ValueError(f"Invalid start_year: {start_year}")
+        if not 1962 <= end_year <= datetime.now().year:
+            raise ValueError(f"Invalid end_year: {end_year}")
+        if start_year > end_year:
+            raise ValueError(f"start_year ({start_year}) must be <= end_year ({end_year})")
+
+
+    def _setup_logger(self, log_level) -> logging.Logger:
+        logger = logging.getLogger('ComtradeDownloader')
+        logger.setLevel(log_level)
+        self.logger = logger
+
+
+    def _setup_paths(self):
+        paths = [
+            self.latest_path,
+            self.raw_files_path,
+            self.archived_path,
+            self.corrupted_path,
+            self.download_report_path
+        ]
+        for path in paths:
+            path.mkdir(parents=True, exist_ok=True)
