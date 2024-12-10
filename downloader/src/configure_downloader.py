@@ -2,6 +2,7 @@ from pathlib import Path
 import regex as re
 from datetime import datetime
 import logging
+import os
 
 
 class ComtradeConfig:
@@ -32,8 +33,8 @@ class ComtradeConfig:
     ):
         # Required fields
         self.api_key = api_key
-        self.output_dir = Path(output_dir / self.REQUESTED_DATA[self.download_type])
         self.download_type = download_type
+        self.output_dir = Path(output_dir ) / self.REQUESTED_DATA[self.download_type]
         self.classification_code = classification_code
         self.start_year = start_year
         self.end_year = end_year
@@ -80,14 +81,23 @@ class ComtradeConfig:
     @property
     def corrupted_path(self) -> Path:
         return self.output_dir / "corrupted"
-
+    
+    @property
+    def aggregated_by_year_stata_path(self) -> Path:
+        return self.output_dir / "aggregated_by_year" / "stata"
+    
+    @property
+    def aggregated_by_year_parquet_path(self) -> Path:
+        return self.output_dir / "aggregated_by_year" / "parquet"
+    
     @property
     def download_report_path(self) -> Path:
-        return (
+        return Path(
             self.output_dir
             / "atlas_download_reports"
-            / f"download_report_{datetime.now().strftime('%Y-%m-%d')}.csv"
+            # / f"download_report_{datetime.now().strftime('%Y-%m-%d')}.csv"
         )
+
 
     def _validate(self):
         if not self.api_key:
@@ -114,6 +124,8 @@ class ComtradeConfig:
             self.raw_files_path,
             self.archived_path,
             self.corrupted_path,
+            self.aggregated_by_year_stata_path,
+            self.aggregated_by_year_parquet_path,
             self.download_report_path,
         ]
         for path in paths:

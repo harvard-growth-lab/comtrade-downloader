@@ -7,7 +7,6 @@ ComtradeDownloader object uses apicomtradecall to output reporter data
 by Classification Code by Year by Reporter
 """
 import pandas as pd
-import comtradeapicall
 import glob
 import os
 import shutil
@@ -29,13 +28,14 @@ class ComtradeDownloader(object):
     def download_comtrade_yearly_bilateral_flows(self):
         """ """
         reporter_codes = []
+        self.downloader = BaseDownloader.create_downloader(self.config)
         for year in self.config.years:
             last_updated = self.get_last_download_date(year)
             if (
                 last_updated > datetime(1900, 1, 1)
                 and not self.config.force_full_download
             ):
-                updated_reporters = self.get_reporters_by_data_availability(
+                updated_reporters = self.downloader.get_reporters_by_data_availability(
                     year, last_updated
                 )
                 year_path = Path(self.config.latest_path / str(year))
@@ -50,8 +50,6 @@ class ComtradeDownloader(object):
                     f"Downloading all {self.config.classification_code} - {year}."
                 )
             year_path.mkdir(parents=True, exist_ok=True)
-
-            self.downloader = BaseDownloader.create_downloader(self.config)
             self.downloader.download_with_retries(year, year_path, last_updated)
 
             relocated_files = (
@@ -88,22 +86,6 @@ class ComtradeDownloader(object):
         latest_date = max(file.published_date for file in comtrade_files)
         return latest_date
 
-    def get_reporters_by_data_availability(self, year, latest_date):
-        df = comtradeapicall.getFinalClassicDataBulkAvailability(
-            self.config.api_key,
-            typeCode="C",
-            freqCode="A",
-            clCode=self.config.classification_code,
-            period=str(year),
-            reporterCode=None,
-        )
-        if df.empty:
-            return []
-        else:
-            df["timestamp"] = pd.to_datetime(df["timestamp"])
-            df_since_download = df[df["timestamp"].dt.date > latest_date.date()]
-            reporter_codes = df_since_download["reporterCode"].unique()
-            return reporter_codes
 
     def replace_raw_files_with_updated_reports(self, year, year_path):
         """ """
@@ -155,15 +137,15 @@ class ComtradeDownloader(object):
         )
 
         # Merge reporter and partner reference tables for ISO3 codes
-        df = df.merge(self.reporters, on="reporterCode", how="left")
-        df = df.merge(self.partners, on="partnerCode", how="left")
+        df = df.merge(self.downloader.reporters, on="reporterCode", how="left")
+        df = df.merge(self.downloader.partners, on="partnerCode", how="left")
 
         if self.config.partner_iso3_codes:
             df = df[df.partnerISO3.isin(self.config.partner_iso3_codes)]
 
         if not self.config.drop_secondary_partners:
             df = df.merge(
-                self.partners.rename(
+                self.downloader.partners.rename(
                     columns={
                         "partnerCode": "partner2Code",
                         "partnerISO3": "partner2ISO3",
@@ -175,34 +157,31 @@ class ComtradeDownloader(object):
         return df
 
     def save_combined_comtrade_year(self, df, year):
-        """"""
-        self.config.logger.info(f"Saving transformed data file for {year}.")
+        """
+        Saves output to parquet and stata. Compactor uses parquet file format
+        """
+        self.config.logger.info(f"Saving aggregated data file for {year}.")
         df.to_stata(
-            os.path.join(
-                self.config.output_dir,
-                "as_reported_output",
-                f"comtrade_{self.config.classification_code}_{year}.dta",
+            Path(
+                self.config.aggregated_by_year_stata_path / f"comtrade_{self.config.classification_code}_{year}.dta",
             ),
             write_index=False,
         )
 
         df.to_parquet(
-            os.path.join(
-                self.config.output_dir,
-                "as_reported_output",
+            Path(
+                self.config.aggregated_by_year_stata_path / 
                 f"comtrade_{self.config.classification_code}_{year}.parquet",
             ),
             compression="snappy",
             index=False,
         )
-
         del df
 
     def generate_download_report(
         self, year_path: Path, replaced_files: list[Path]
     ) -> None:
         """Generate detailed download report with file and processing metadata."""
-
         report_data = {
             "report_time": datetime.now(),
             "classification": self.config.classification_code,
@@ -225,22 +204,14 @@ class ComtradeDownloader(object):
         df["download_time"] = report_data["report_time"]
         df["classification"] = report_data["classification"]
 
+        file_name = f"download_report_{datetime.now().strftime('%Y-%m-%d')}.csv"
         try:
-            existing = pd.read_csv(self.config.download_report_path)
+            existing = pd.read_csv(Path(self.config.download_report_path / file_name))
             df = pd.concat([existing, df], ignore_index=True)
         except FileNotFoundError:
             pass
-        df.to_csv(self.config.download_report_path, index=False)
+        df.to_csv(Path(self.config.download_report_path / file_name), index=False)
 
-    # def output_requested_format(self, year_path) -> None:
-    #     files = glob.glob(year_path)
-    #     df = pd.read_csv(self.config.input_path, compression='gzip', sep='\t')
-    #     if self.config.file_format == 'parquet':
-    #         df.to_parquet(self.config.output_path, compression='snappy')
-    #     elif self.config.file_format == 'dta':
-    #         df.to_stata(self.config.output_path, compression='gzip')
-    #     elif self.config.file_format not in ['parquet', 'csv', 'dta']:
-    #         raise ValueError(f"Unsupported file format: {self.config.file_format}")
 
     def remove_tmp_dir(self, tmp_path):
         """ """

@@ -12,6 +12,24 @@ import pandas as pd
 
 
 class BaseDownloader:
+    def __init__(self, config):
+        self.config = config
+        self._setup_reference_data()
+        
+        
+    def _setup_reference_data(self):
+        self.reporters = comtradeapicall.getReference("reporter")[
+           ["reporterCode", "reporterCodeIsoAlpha3"]
+        ].rename(columns={"reporterCodeIsoAlpha3": "reporterISO3"})
+
+        self.partners = comtradeapicall.getReference("partner")[
+           ["PartnerCode", "PartnerCodeIsoAlpha3"]
+        ].rename(columns={
+           "PartnerCode": "partnerCode",
+           "PartnerCodeIsoAlpha3": "partnerISO3",
+        })
+
+
     @contextmanager
     def suppress_stdout(self):
         with open(os.devnull, "w") as devnull:
@@ -158,7 +176,7 @@ class ClassicDownloader(BaseDownloader):
     }
 
     def __init__(self, config: ComtradeConfig):
-        self.config = config
+        super().__init__(config)
 
     def execute_download(self, year: int, last_updated=None, reporter_code=None):
         params = {
@@ -177,6 +195,23 @@ class ClassicDownloader(BaseDownloader):
 
         with self.suppress_stdout() if self.config.suppress_print else nullcontext():
             comtradeapicall.bulkDownloadFinalClassicFile(**params)
+            
+    def get_reporters_by_data_availability(self, year: int, latest_date: datetime):
+        df = comtradeapicall.getFinalClassicDataBulkAvailability(
+            self.config.api_key,
+            typeCode="C",
+            freqCode="A",
+            clCode=self.config.classification_code,
+            period=str(year),
+            reporterCode=None,
+        )
+        if df.empty:
+            return []
+        else:
+            df["timestamp"] = pd.to_datetime(df["timestamp"])
+            df_since_download = df[df["timestamp"].dt.date > latest_date.date()]
+            reporter_codes = df_since_download["reporterCode"].unique()
+            return reporter_codes
 
 
 class BulkDownloader(BaseDownloader):
@@ -200,7 +235,7 @@ class BulkDownloader(BaseDownloader):
     }
 
     def __init__(self, config: ComtradeConfig):
-        self.config = config
+        super().__init__(config)
 
     def execute_download(self, year: int, last_updated=None, reporter_code=[]):
         params = {
@@ -216,3 +251,22 @@ class BulkDownloader(BaseDownloader):
 
         with self.suppress_stdout() if self.config.suppress_print else nullcontext():
             comtradeapicall.bulkDownloadFile(**params)
+            
+    
+    def get_reporters_by_data_availability(self, year: int, latest_date: datetime):
+        df = comtradeapicall.getFinalDataBulkAvailability(
+            self.config.api_key,
+            typeCode="C",
+            freqCode="A",
+            clCode=self.config.classification_code,
+            period=str(year),
+            reporterCode=None,
+        )
+        if df.empty:
+            return []
+        else:
+            df["timestamp"] = pd.to_datetime(df["timestamp"])
+            df_since_download = df[df["timestamp"].dt.date > latest_date.date()]
+            reporter_codes = df_since_download["reporterCode"].unique()
+            return reporter_codes
+
