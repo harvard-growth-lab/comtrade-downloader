@@ -7,10 +7,12 @@ import comtradeapicall
 import time
 from datetime import date, timedelta, datetime
 import numpy as np
+
 # import dask.dataframe as dd
 # import dask.array as da
 # from dask.diagnostics import ProgressBar
 # from dask.diagnostics import ResourceProfiler
+
 
 class ComtradeCompactor(object):
     GROUP_REPORTERS = {"EU": "097", "ASEAN": "975"}
@@ -107,12 +109,15 @@ class ComtradeCompactor(object):
 
         # transform iso3_codes into reporterCodes
         reporter_df = comtradeapicall.getReference("reporter")
-        reporter_df = reporter_df[~reporter_df.reporterCodeIsoAlpha3.isin(EXCL_REPORTER_GROUPS.values())]
-        reporter_df = reporter_df[["reporterCode", "reporterCodeIsoAlpha3"]].rename(columns={"reporterCodeIsoAlpha3": "reporterISO3"})
+        reporter_df = reporter_df[
+            ~reporter_df.reporterCodeIsoAlpha3.isin(EXCL_REPORTER_GROUPS.values())
+        ]
+        reporter_df = reporter_df[["reporterCode", "reporterCodeIsoAlpha3"]].rename(
+            columns={"reporterCodeIsoAlpha3": "reporterISO3"}
+        )
         # remove not else specified
         reporter_df = reporter_df[~reporter_df.reporterISO3.isin([NES_COUNTRIES])]
-        
-        
+
         if "All" in reporter_iso3_codes:
             self.reporter_iso3s = [reporter_df["reporterISO3"].tolist()]
             self.reporter_codes = [reporter_df["reporterCode"].tolist()]
@@ -128,10 +133,14 @@ class ComtradeCompactor(object):
         # transform given iso3_codes into partnerCodes
         partners_df = comtradeapicall.getReference("partner")
         # removes WORLD
-        partners_df = partners_df[["PartnerCode", "PartnerCodeIsoAlpha3"]].rename(columns={"PartnerCode": "partnerCode","PartnerCodeIsoAlpha3": "partnerISO3"})
+        partners_df = partners_df[["PartnerCode", "PartnerCodeIsoAlpha3"]].rename(
+            columns={
+                "PartnerCode": "partnerCode",
+                "PartnerCodeIsoAlpha3": "partnerISO3",
+            }
+        )
         partners_df = partners_df[~partners_df.partnerISO3.isin([NES_COUNTRIES])]
-        
-        
+
         if "All" in partner_iso3_codes and "World" in partner_iso3_codes:
             logging.info(
                 "Requested All partners and world. World duplicates the total primary value"
@@ -140,7 +149,7 @@ class ComtradeCompactor(object):
             self.partner_codes = partners_df["partnerCode"].tolist()
             self.requests_all_and_world_partners = True
             self.requests_all_partners = True
-        
+
         elif "All" in partner_iso3_codes:
             logging.info("requested All partners")
             self.partner_iso3s = partners_df["partnerISO3"].tolist()
@@ -150,23 +159,27 @@ class ComtradeCompactor(object):
             ].tolist()
             self.requests_all_and_world_partners = False
             self.requests_all_partners = True
-            
+
         else:
-            # map Taiwan back to comtrade iso code definition S19    
-            partner_iso3_codes = list(map(lambda x: x.replace('TWN', 'S19'), partner_iso3_codes))
-            partner_codes = partners_df[partners_df["partnerISO3"].isin(partner_iso3_codes)]
+            # map Taiwan back to comtrade iso code definition S19
+            partner_iso3_codes = list(
+                map(lambda x: x.replace("TWN", "S19"), partner_iso3_codes)
+            )
+            partner_codes = partners_df[
+                partners_df["partnerISO3"].isin(partner_iso3_codes)
+            ]
             self.partner_iso3s = partner_codes["partnerISO3"].tolist()
             self.partner_codes = partner_codes["partnerCode"].tolist()
             self.requests_all_and_world_partners = False
             self.requests_all_partners = False
-        
+
         # setup filter parameters
         self.filters = {}
         # if partner2Code detail is not requested filter to world
         if is_show_reexport == "Yes":
-            self.filters["partner2Code"] = partners_df[
-                partners_df.partnerCode != 0
-            ]["partnerCode"].tolist()
+            self.filters["partner2Code"] = partners_df[partners_df.partnerCode != 0][
+                "partnerCode"
+            ].tolist()
         else:
             self.filters["partner2Code"] = [0]
         self.filters["partnerCode"] = self.partner_codes
@@ -247,7 +260,7 @@ class ComtradeCompactor(object):
         for year in self.years:
             logging.info(f"starting data gathering for year: {year}")
             df = self.get_df_by_year(year, query_statement)
-            
+
             if df.empty:
                 logging.info(
                     f"No requested {self.classification_code} data for {year}."
@@ -274,9 +287,7 @@ class ComtradeCompactor(object):
             outpath = os.path.join(
                 self.output_dir,
                 f"{self.classification_code}_[{self.run_time}]",
-                f"{self.classification_code}_"
-                + f"{year}"
-                + f".{self.data_format}",
+                f"{self.classification_code}_" + f"{year}" + f".{self.data_format}",
             )
         else:
             outpath = os.path.join(
@@ -287,10 +298,16 @@ class ComtradeCompactor(object):
                 + f"{self.run_time}"
                 f".{self.data_format}",
             )
-            
+
         if self.atlas_cleaning:
-            # remove default columns to reduce file size 
-            cols_to_drop = ['reporterCode', 'partnerCode', 'motCode','customsCode', 'partner2Code']
+            # remove default columns to reduce file size
+            cols_to_drop = [
+                "reporterCode",
+                "partnerCode",
+                "motCode",
+                "customsCode",
+                "partner2Code",
+            ]
             for col in cols_to_drop:
                 try:
                     df = df.drop(columns=[col])
@@ -314,7 +331,7 @@ class ComtradeCompactor(object):
                 if cast_field in df.columns:
                     df[cast_field] = df[cast_field].astype(float)
             if not self.atlas_cleaning:
-                df['partner2Code'] = df.partner2Code.astype(str)
+                df["partner2Code"] = df.partner2Code.astype(str)
             df.reset_index(drop=True, inplace=True)
             df.to_stata(outpath)
 
@@ -358,15 +375,18 @@ class ComtradeCompactor(object):
             all_reporters = glob.glob(os.path.join(self.src_dir, str(year), "*.gz"))
             year_df = pd.DataFrame()
             for file in all_reporters:
-                if file.split("/")[-1][17:20] not in [self.GROUP_REPORTERS["ASEAN"], self.GROUP_REPORTERS["EU"]]:
+                if file.split("/")[-1][17:20] not in [
+                    self.GROUP_REPORTERS["ASEAN"],
+                    self.GROUP_REPORTERS["EU"],
+                ]:
                     reporter_dfs = dd.read_csv(
-                            file,
-                            compression="gzip",
-                            sep="\t",
-                            usecols=self.columns,
-                            dtype=self.dtypes_dict,
-                            blocksize=None
-                        )
+                        file,
+                        compression="gzip",
+                        sep="\t",
+                        usecols=self.columns,
+                        dtype=self.dtypes_dict,
+                        blocksize=None,
+                    )
 
                     year_df = dd.concat([year_df, reporter_dfs])
             logging.info("concatenated all reporter dataframes")
@@ -503,12 +523,12 @@ class ComtradeCompactor(object):
         mapping_dict[0] = "WLD"
         mapping_dict[490] = "TWN"
         df_copy["partnerISO3"] = df_copy["partnerCode"].map(mapping_dict)
-        
+
         # remove Not Elsewhere Specified Partner Countries
         df_copy = df_copy[~df_copy.partnerISO3.isin(NES_COUNTRIES)]
-        
+
         # handles south africa
-        df_copy.loc[df_copy.reporterISO3=="ZA1", "reporterISO3"] = "ZAF"
-        df_copy.loc[df_copy.partnerISO3=="ZA1", "partnerISO3"] = "ZAF"
+        df_copy.loc[df_copy.reporterISO3 == "ZA1", "reporterISO3"] = "ZAF"
+        df_copy.loc[df_copy.partnerISO3 == "ZA1", "partnerISO3"] = "ZAF"
 
         return df_copy

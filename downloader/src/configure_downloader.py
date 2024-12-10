@@ -5,36 +5,34 @@ import logging
 
 
 class ComtradeConfig:
-    
-    REQUESTED_DATA = {"classic": "as_reported",
-                      "final": "by_classification"
-                     }
+    REQUESTED_DATA = {"classic": "as_reported", "final": "by_classification"}
+
     def __init__(
-       self,
-       api_key: str,
-       output_dir: str,
-       download_type: str,
-       classification_code: str, 
-       start_year: int,
-       end_year: int,
-       log_level: str,
-       reporter_iso3_codes: list,
-       partner_iso3_codes: list,
-       commodity_codes: list,
-       flow_codes: list,
-       mot_codes: list,
-       mos_codes: list,
-       customs_codes: list,
-       drop_world_partner: bool,
-       drop_secondary_partners: bool,
-       delete_tmp_files: bool,
-       compress_output: bool,
-       suppress_print: bool,
-       force_full_download: bool,
-   ):
-       # Required fields
+        self,
+        api_key: str,
+        output_dir: str,
+        download_type: str,
+        classification_code: str,
+        start_year: int,
+        end_year: int,
+        log_level: str,
+        reporter_iso3_codes: list,
+        partner_iso3_codes: list,
+        commodity_codes: list,
+        flow_codes: list,
+        mot_codes: list,
+        mos_codes: list,
+        customs_codes: list,
+        drop_world_partner: bool,
+        drop_secondary_partners: bool,
+        delete_tmp_files: bool,
+        compress_output: bool,
+        suppress_print: bool,
+        force_full_download: bool,
+    ):
+        # Required fields
         self.api_key = api_key
-        self.output_dir = Path(output_dir)
+        self.output_dir = Path(output_dir / self.REQUESTED_DATA[self.download_type])
         self.download_type = download_type
         self.classification_code = classification_code
         self.start_year = start_year
@@ -61,34 +59,36 @@ class ComtradeConfig:
         self._validate()
         self._setup_logger(log_level)
         self._setup_paths()
-        
+
         if self.compress_output:
             self.file_extension = "gz"
         else:
             self.file_extension = "csv"
 
-
     @property
     def latest_path(self) -> Path:
-        return self.output_dir / self.REQUESTED_DATA[self.download_type] / "latest" / self.classification_code
+        return self.output_dir / "latest" / self.classification_code
 
     @property
     def raw_files_path(self) -> Path:
-        return self.output_dir / self.REQUESTED_DATA[self.download_type] / "raw" / self.classification_code
+        return self.output_dir / "raw" / self.classification_code
 
-    @property 
+    @property
     def archived_path(self) -> Path:
-        return self.output_dir / self.REQUESTED_DATA[self.download_type] / "archived" / self.classification_code
+        return self.output_dir / "archived" / self.classification_code
 
     @property
     def corrupted_path(self) -> Path:
-        return self.output_dir / self.REQUESTED_DATA[self.download_type] / "corrupted"
+        return self.output_dir / "corrupted"
 
     @property
     def download_report_path(self) -> Path:
-        return self.output_dir / "atlas_download_reports" / f"download_report_{self.REQUESTED_DATA[self.download_type]}_{datetime.now()}.csv"
+        return (
+            self.output_dir
+            / "atlas_download_reports"
+            / f"download_report_{datetime.now().strftime('%Y-%m-%d')}.csv"
+        )
 
-        
     def _validate(self):
         if not self.api_key:
             raise ValueError(f"Requires an API KEY for Comtrade")
@@ -99,14 +99,14 @@ class ComtradeConfig:
         if not 1962 <= end_year <= datetime.now().year:
             raise ValueError(f"Invalid end_year: {end_year}")
         if start_year > end_year:
-            raise ValueError(f"start_year ({start_year}) must be <= end_year ({end_year})")
-
+            raise ValueError(
+                f"start_year ({start_year}) must be <= end_year ({end_year})"
+            )
 
     def _setup_logger(self, log_level) -> logging.Logger:
-        logger = logging.getLogger('ComtradeDownloader')
+        logger = logging.getLogger("ComtradeDownloader")
         logger.setLevel(log_level)
         self.logger = logger
-
 
     def _setup_paths(self):
         paths = [
@@ -114,7 +114,7 @@ class ComtradeConfig:
             self.raw_files_path,
             self.archived_path,
             self.corrupted_path,
-            self.download_report_path
+            self.download_report_path,
         ]
         for path in paths:
             path.mkdir(parents=True, exist_ok=True)
