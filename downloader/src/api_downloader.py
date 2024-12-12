@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-
 """
 ComtradeDownloader object uses apicomtradecall to output reporter data 
 by Classification Code by Year by Reporter
@@ -22,6 +21,9 @@ from pathlib import Path
 
 
 class ComtradeDownloader(object):
+    
+    TAIWAN = {'S19': 'TWN'}
+
     def __init__(self, config: ComtradeConfig):
         self.config = config
 
@@ -32,7 +34,7 @@ class ComtradeDownloader(object):
         for year in self.config.years:
             last_updated = self.get_last_download_date(year)
             if (
-                last_updated > datetime(1900, 1, 1)
+                last_updated > self.downloader.earliest_date
                 and not self.config.force_full_download
             ):
                 updated_reporters = self.downloader.get_reporters_by_data_availability(
@@ -44,25 +46,28 @@ class ComtradeDownloader(object):
                     f"files updated since {last_updated}."
                 )
             else:
-                last_updated = datetime(1900, 1, 1)
+                last_updated = self.downloader.earliest_date
                 year_path = Path(self.config.raw_files_path / str(year))
                 self.config.logger.info(
                     f"Downloading all {self.config.classification_code} - {year}."
                 )
+                
             year_path.mkdir(parents=True, exist_ok=True)
             self.downloader.download_with_retries(year, year_path, last_updated)
 
             relocated_files = (
                 []
-                if last_updated is None or self.config.force_full_download
+                if last_updated == self.downloader.earliest_date or self.config.force_full_download
                 else self.replace_raw_files_with_updated_reports(year, year_path)
             )
-
             self.generate_download_report(year_path, relocated_files)
             self.config.logger.info(f"Generated download report for {year}.")
-
             self.downloader.handle_corrupt_files(year)
-            df = self.transform_data(year)
+            self.df = self.aggregate_data_by_year(year)
+            # integrated compactor
+            self.filter_data()
+            # INFO:root:Filtering for {'partner2Code': [0], 'cmdCode': [], 'motCode': ['0'], 'customsCode': ['C00'], 'flowCode': ['M', 'X', 'RM', 'RX']}
+            
             self.save_combined_comtrade_year(df, year)
 
     def get_last_download_date(self, year):
@@ -71,13 +76,12 @@ class ComtradeDownloader(object):
         and year were last downloaded
         """
         year_path = Path(self.config.raw_files_path) / str(year)
-        min_date = datetime(1900, 1, 1)
         if not year_path.exists():
-            return min_date
+            return self.downloader.earliest_date
 
         files = list(year_path.glob("*.gz"))
         if not files:
-            return min_date
+            return self.downloader.earliest_date
 
         self.config.logger.info(
             f"{self.config.classification_code} - {year}: {len(files)} reporter files found"
@@ -106,20 +110,21 @@ class ComtradeDownloader(object):
             try:
                 # Archive existing file if present
                 if outdated := raw_files.get(ComtradeFile(updated).reporter_code):
-                    shutil.move(str(outdated), str(archive_path))
                     relocated.append(outdated)
-
                 # Move new file to raw
                 shutil.move(str(updated), str(raw_year_path))
                 relocated.append(updated)
-
             except shutil.Error as e:
-                self.config.logger.error(f"Failed to move files: {e}")
+                self.config.logger.error(f"Failed to move updated {updated} to raw files: {e}")
+            try:
+                shutil.move(str(outdated), str(archive_path))
+            except shutil.Error as e:
+                self.config.logger.error(f"Failed to move {outdated} to archived files: {e}")
 
-        self.config.logger.info("Updated raw files with latest data")
+        self.config.logger.info("Raw files updated with latest data")
         return relocated
 
-    def transform_data(self, year):
+    def aggregate_data_by_year(self, year):
         """"""
         year_path = Path(self.config.raw_files_path) / str(year)
         df = pd.concat(
@@ -155,6 +160,10 @@ class ComtradeDownloader(object):
                 how="left",
             )
         return df
+    
+    def filter_data(self):
+        import pdb
+        pdb.set_trace()
 
     def save_combined_comtrade_year(self, df, year):
         """

@@ -12,6 +12,33 @@ import pandas as pd
 
 
 class BaseDownloader:
+    columns = {
+        "period": "int16",
+        "reporterCode": "int16",
+        "flowCode": "category",
+        "partnerCode": "int16",
+        # "partner2Code": "int16",
+        "classificationCode": "string",
+        "cmdCode": "string",
+        # "customsCode": "string",
+        # "mosCode": "int16",
+        # "motCode": "int16",
+        "qtyUnitCode": "int8",
+        "qty": "float64",
+        "isQtyEstimated": "int8",
+        "CIFValue": "float64",
+        "FOBValue": "float64",
+        "primaryValue": "float64",
+    }
+    
+    NES_COUNTRIES = ['_AC','_X ','X1 ', 'XX ','R91','A49','E29','R20','MCO','X2 ', 'A79','A59','F49','O19','F19','E19','F97']
+
+    EXCL_REPORTER_GROUPS = {'ASEAN': 'R4', 
+                           'European Union': 'EUR', 
+                           }
+
+    earliest_date = datetime(1962, 1, 1)
+
     def __init__(self, config):
         self.config = config
         self._setup_reference_data()
@@ -21,6 +48,8 @@ class BaseDownloader:
         self.reporters = comtradeapicall.getReference("reporter")[
            ["reporterCode", "reporterCodeIsoAlpha3"]
         ].rename(columns={"reporterCodeIsoAlpha3": "reporterISO3"})
+        self.reporters = self.reporters[~self.reporters.reporterISO3.isin(self.EXCL_REPORTER_GROUPS.values())]
+        self.reporters = self.reporters[~self.reporters.reporterISO3.isin([self.NES_COUNTRIES])]
 
         self.partners = comtradeapicall.getReference("partner")[
            ["PartnerCode", "PartnerCodeIsoAlpha3"]
@@ -28,6 +57,7 @@ class BaseDownloader:
            "PartnerCode": "partnerCode",
            "PartnerCodeIsoAlpha3": "partnerISO3",
         })
+        self.partners = self.partners[~self.partners.partnerISO3.isin([self.NES_COUNTRIES])]
 
 
     @contextmanager
@@ -42,7 +72,7 @@ class BaseDownloader:
 
     @staticmethod
     def create_downloader(config):
-        downloaders = {"classic": ClassicDownloader, "bulk": BulkDownloader}
+        downloaders = {"classic": ClassicDownloader, "final": BulkDownloader}
         return downloaders[config.download_type](config)
 
     def execute_download(self, year: int, year_path: Path, last_updated: datetime):
@@ -52,11 +82,13 @@ class BaseDownloader:
         self, year: int, year_path: Path, last_updated: datetime, num_attempts=3
     ):
         self.year_path = year_path
+        if self.config.reporter_iso3_codes:
+            requested_reporters = comtradeapicall.convertCountryIso3ToCode(self.config.reporter_iso3_codes[0])
         attempt = 0
         while attempt < num_attempts:
             try:
-                self.execute_download(year, last_updated)
-                break
+                self.execute_download(year, last_updated, reporter_code=requested_reporters if requested_reporters else [])
+                return
             except ConnectionResetError as e:
                 wait = 2**attempt
                 attempt += 1
@@ -103,10 +135,6 @@ class BaseDownloader:
         while corrupted_files and attempts < 3:
             corrupted = True
             logging.info(f"Found corrupted files")
-            import pdb
-
-            pdb.set_trace()
-
             for corrupted_file in corrupted_files:
                 year = ComtradeFile(corrupted_file).year
                 reporter_code = ComtradeFile(corrupted_file).reporter_code
@@ -156,29 +184,10 @@ class ClassicDownloader(BaseDownloader):
     code reported in
     """
 
-    columns = {
-        "period": "int16",
-        "reporterCode": "int16",
-        "flowCode": "category",
-        "partnerCode": "int16",
-        # "partner2Code": "int16",
-        "classificationCode": "string",
-        "cmdCode": "string",
-        # "customsCode": "string",
-        # "mosCode": "int16",
-        # "motCode": "int16",
-        "qtyUnitCode": "int8",
-        "qty": "float64",
-        "isQtyEstimated": "int8",
-        "CIFValue": "float64",
-        "FOBValue": "float64",
-        "primaryValue": "float64",
-    }
-
     def __init__(self, config: ComtradeConfig):
         super().__init__(config)
 
-    def execute_download(self, year: int, last_updated=None, reporter_code=None):
+    def execute_download(self, year: int, last_updated, reporter_code):
         params = {
             "subscription_key": self.config.api_key,
             "directory": self.year_path,
@@ -215,42 +224,34 @@ class ClassicDownloader(BaseDownloader):
 
 
 class BulkDownloader(BaseDownloader):
-    columns = {
-        "period": "int16",
-        "reporterCode": "int16",
-        "flowCode": "category",
-        "partnerCode": "int16",
-        "partner2Code": "int16",
-        "classificationCode": "string",
-        "cmdCode": "string",
-        "customsCode": "string",
-        "mosCode": "int16",
-        "motCode": "int16",
-        "qtyUnitCode": "int8",
-        "qty": "float64",
-        "isQtyEstimated": "int8",
-        "CIFValue": "float64",
-        "FOBValue": "float64",
-        "primaryValue": "float64",
-    }
 
     def __init__(self, config: ComtradeConfig):
         super().__init__(config)
+        self.columns |={
+            "partner2Code": "int16",
+            "cmdCode": "string",
+            "customsCode": "string",
+            "mosCode": "int16",
+            "motCode": "int16",
+        }
 
-    def execute_download(self, year: int, last_updated=None, reporter_code=[]):
+
+    def execute_download(self, year: int, last_updated, reporter_code):
         params = {
             "subscription_key": self.config.api_key,
             "directory": self.year_path,
-            "dataset": "trade",
+            "typeCode": "C",
+            "freqCode": "A",
+            "clCode": self.config.classification_code,
             "period": str(year),
             "reporterCode": reporter_code,
             "decompress": False,
         }
         if last_updated:
             params["publishedDateFrom"] = last_updated.strftime("%Y-%m-%d")
-
+            
         with self.suppress_stdout() if self.config.suppress_print else nullcontext():
-            comtradeapicall.bulkDownloadFile(**params)
+            comtradeapicall.bulkDownloadFinalFile(**params)
             
     
     def get_reporters_by_data_availability(self, year: int, latest_date: datetime):

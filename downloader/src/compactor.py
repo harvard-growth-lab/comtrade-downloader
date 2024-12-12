@@ -14,27 +14,16 @@ import numpy as np
 # from dask.diagnostics import ResourceProfiler
 
 
-class ComtradeCompactor(object):
+class ComtradeCompactor(ComtradeConfig):
     GROUP_REPORTERS = {"EU": "097", "ASEAN": "975"}
+    CLASSIFICATION_CODES = {"H0 (HS-92)": "H0", "H4 (HS-12)": "H4", "H5 (HS-17)": "H5", "SITC": "SITC"}
 
     def __init__(
         self,
-        classification_code,
-        start_year,
-        end_year,
-        reporter_iso3_codes=[],
-        partner_iso3_codes=[],
-        is_show_reexport=[],
-        commodity_codes=[],
-        modes_of_transport=[],
-        customs_codes=[],
-        flow_codes=[],
-        digit_level=0,
-        additional_requested_cols=[],
-        output_by_year=True,
-        atlas_cleaning=False,
-        data_format="csv",
+        config: ComtradeConfig
+        downloader: BaseDownloader
     ):
+        
         self.columns = [
             "period",
             "reporterCode",
@@ -47,27 +36,9 @@ class ComtradeCompactor(object):
             "customsCode",
             "qty",
             "primaryValue",
-        ] + list(additional_requested_cols)
-
-        additional_col_dtypes = {
-            "typeCode": "str",
-            "freqCode": "str",
-            "mosCode": "str",
-            "qtyUnitCode": "str",
-            "isQtyEstimated": "int",
-            "atlQtyUnitCode": "str",
-            "altQty": "float",
-            "isAltQtyEstimated": "int",
-            "netWgt": "float",
-            "isNetWgtEstimated": "int",
-            "grossWgt": "float",
-            "isGrossWgtEstimated": "int",
             "CIFValue": "float",
             "FOBValue": "float",
-            "legacyEstimationFlag": "int",
-            "isReported": "int",
-            "isAggregate": "int",
-        }
+        ] 
 
         self.dtypes_dict = {
             "period": np.int16,
@@ -80,151 +51,60 @@ class ComtradeCompactor(object):
             "customsCode": "category",
             "qty": np.float32,
             "primaryValue": np.float32,
+            "CIFValue": np.float32,
+            "FOBValue": np.float32,
         }
 
-        for col in additional_requested_cols:
-            dtype = additional_col_dtypes.get(col)
-            if dtype:
-                self.dtypes_dict[col] = dtype
+        # self.src_dir = os.path.join(
+        #     "/n/hausmann_lab/lab/atlas/data/raw",
+        #     self.classification_code,
+        # )
 
-        self.classification_code = CLASSIFICATION_CODES[classification_code]
-        # TODO: ADD CASES BASED ON CLASSIFICATION CODE SELECTED FOR EACH YEAR
-        self.start_year = start_year
-        self.end_year = end_year
-        self.years = range(self.start_year, self.end_year + 1)
+        # self.output_dir = os.path.join(
+        #     "/n/hausmann_lab/lab/_shared_dev_data/compactor_output",
+        #     os.environ.get("USER"),
+        #     self.classification_code,
+        # )
+        # os.makedirs(self.output_dir, exist_ok=True)
 
-        self.src_dir = os.path.join(
-            "/n/hausmann_lab/lab/atlas/data/raw",
-            self.classification_code,
-        )
-
-        self.output_dir = os.path.join(
-            "/n/hausmann_lab/lab/_shared_dev_data/compactor_output",
-            os.environ.get("USER"),
-            self.classification_code,
-        )
-        os.makedirs(self.output_dir, exist_ok=True)
-
-        self.run_time = time.strftime("%Y-%m-%d_%H_%M_%S", time.gmtime())
+        self.run_time = datetime.datetime.now().strftime("%Y-%m-%d_%H_%M_%S")
 
         # transform iso3_codes into reporterCodes
-        reporter_df = comtradeapicall.getReference("reporter")
-        reporter_df = reporter_df[
-            ~reporter_df.reporterCodeIsoAlpha3.isin(EXCL_REPORTER_GROUPS.values())
+        reporter_df = self.downloader.reporters[
+            ~self.downloader.reporters.reporterISO3.isin(EXCL_REPORTER_GROUPS.values())
         ]
-        reporter_df = reporter_df[["reporterCode", "reporterCodeIsoAlpha3"]].rename(
-            columns={"reporterCodeIsoAlpha3": "reporterISO3"}
-        )
         # remove not else specified
         reporter_df = reporter_df[~reporter_df.reporterISO3.isin([NES_COUNTRIES])]
 
-        if "All" in reporter_iso3_codes:
-            self.reporter_iso3s = [reporter_df["reporterISO3"].tolist()]
-            self.reporter_codes = [reporter_df["reporterCode"].tolist()]
-            self.requests_all_reporters = True
-        else:
-            reporter_codes = reporter_df[
-                reporter_df["reporterISO3"].isin(reporter_iso3_codes)
-            ]
-            self.reporter_iso3s = reporter_codes["reporterISO3"].tolist()
-            self.reporter_codes = reporter_codes["reporterCode"].tolist()
-            self.requests_all_reporters = False
+        self.reporter_iso3s = [reporter_df["reporterISO3"].tolist()]
+        self.reporter_codes = [reporter_df["reporterCode"].tolist()]
 
-        # transform given iso3_codes into partnerCodes
-        partners_df = comtradeapicall.getReference("partner")
-        # removes WORLD
-        partners_df = partners_df[["PartnerCode", "PartnerCodeIsoAlpha3"]].rename(
-            columns={
-                "PartnerCode": "partnerCode",
-                "PartnerCodeIsoAlpha3": "partnerISO3",
-            }
-        )
-        partners_df = partners_df[~partners_df.partnerISO3.isin([NES_COUNTRIES])]
+        partners_df = self.downloader.partners[~self.downloader.partners.partnerISO3.isin([NES_COUNTRIES])]
 
-        if "All" in partner_iso3_codes and "World" in partner_iso3_codes:
-            logging.info(
-                "Requested All partners and world. World duplicates the total primary value"
-            )
-            self.partner_iso3s = partners_df["partnerISO3"].tolist()
-            self.partner_codes = partners_df["partnerCode"].tolist()
-            self.requests_all_and_world_partners = True
-            self.requests_all_partners = True
+        logging.info("All partners and world. World duplicates the total primary value")
+        self.partner_iso3s = partners_df["partnerISO3"].tolist()
+        self.partner_codes = partners_df["partnerCode"].tolist()
+        self.requests_all_and_world_partners = True
+        self.requests_all_partners = True
 
-        elif "All" in partner_iso3_codes:
-            logging.info("requested All partners")
-            self.partner_iso3s = partners_df["partnerISO3"].tolist()
-            # drop world
-            self.partner_codes = partners_df[partners_df.partnerCode != 0][
-                "partnerCode"
-            ].tolist()
-            self.requests_all_and_world_partners = False
-            self.requests_all_partners = True
+        # else:
+        #     # map Taiwan back to comtrade iso code definition S19
+        #     partner_iso3_codes = list(
+        #         map(lambda x: x.replace("TWN", "S19"), partner_iso3_codes)
+        #     )
+        #     partner_codes = partners_df[
+        #         partners_df["partnerISO3"].isin(partner_iso3_codes)
+        #     ]
+        #     self.partner_iso3s = partner_codes["partnerISO3"].tolist()
+        #     self.partner_codes = partner_codes["partnerCode"].tolist()
+        #     self.requests_all_and_world_partners = False
+        #     self.requests_all_partners = False
 
-        else:
-            # map Taiwan back to comtrade iso code definition S19
-            partner_iso3_codes = list(
-                map(lambda x: x.replace("TWN", "S19"), partner_iso3_codes)
-            )
-            partner_codes = partners_df[
-                partners_df["partnerISO3"].isin(partner_iso3_codes)
-            ]
-            self.partner_iso3s = partner_codes["partnerISO3"].tolist()
-            self.partner_codes = partner_codes["partnerCode"].tolist()
-            self.requests_all_and_world_partners = False
-            self.requests_all_partners = False
-
-        # setup filter parameters
-        self.filters = {}
-        # if partner2Code detail is not requested filter to world
-        if is_show_reexport == "Yes":
-            self.filters["partner2Code"] = partners_df[partners_df.partnerCode != 0][
-                "partnerCode"
-            ].tolist()
-        else:
-            self.filters["partner2Code"] = [0]
-        self.filters["partnerCode"] = self.partner_codes
-        if commodity_codes == "":
-            self.filters["cmdCode"] = []
-        elif len(commodity_codes) == 1:
-            self.filters["cmdCode"] = [commodity_codes]
-        else:
-            commodity_codes = commodity_codes.split(",")
-            commodity_codes = [cmd.strip() for cmd in commodity_codes]
-            self.filters["cmdCode"] = commodity_codes
-        modes_of_transport = [item for item in modes_of_transport if item != " "]
-
-        if modes_of_transport:
-            mot_ids = []
-            for id in list(modes_of_transport):
-                mot_ids.append(MOT_OPTIONS[id])
-                self.filters["motCode"] = mot_ids
-        else:
-            # default to filter for total
-            self.filters["motCode"] = ["0"]
-
-        customs_codes = [item for item in customs_codes if item != " "]
-        if customs_codes:
-            customs_ids = []
-            for id in list(customs_codes):
-                customs_ids.append(CUSTOMS_OPTIONS[id])
-                self.filters["customsCode"] = customs_ids
-        else:
-            # default to filter for total
-            self.filters["customsCode"] = ["C00"]
-
-        flow_codes = [item for item in flow_codes if item != " "]
-        if flow_codes:
-            flow_codes_abbrv = []
-            for flow_code in list(flow_codes):
-                flow_codes_abbrv.append(FLOW_CODE_OPTIONS[flow_code])
-                self.filters["flowCode"] = flow_codes_abbrv
-        else:
-            self.filters["flowCode"] = []
-
-        self.digit_levels = list(digit_level)
-        self.output_by_year = output_by_year
-        self.atlas_cleaning = atlas_cleaning
-        self.data_format = data_format
+        # self.filter_data()
+        # self.digit_levels = list(digit_level)
+        # self.output_by_year = output_by_year
+        # self.atlas_cleaning = atlas_cleaning
+        # self.data_format = data_format
 
     def compact(self):
         """
@@ -234,46 +114,29 @@ class ComtradeCompactor(object):
         Input:
             ComtradeCompactor (obj)
         """
-        all_years_df = pd.DataFrame(columns=self.columns)
-        all_years_df = all_years_df.astype(self.dtypes_dict)
-        logging.info(f"Requested data at {datetime.now()}")
-        logging.info("Querying the data for")
-        if self.requests_all_reporters:
-            logging.info("all Reporters")
-        else:
-            logging.info(f"Reporters: {self.reporter_iso3s}")
+        for classification_code in CLASSIFICATION_CODES.values():
+            all_years_df = pd.DataFrame(columns=self.columns)
+            all_years_df = all_years_df.astype(self.dtypes_dict)
+            logging.info(f"Requested data at {datetime.now()}")
+            logging.info("Querying the data for")
 
-        if self.requests_all_partners and self.requests_all_and_world_partners:
-            logging.info("all Partners and the World")
-        elif self.requests_all_partners:
-            logging.info("all Partners")
-        else:
-            logging.info(f"Partners: {self.partner_iso3s}")
-        show_filters = {
-            key: value for key, value in self.filters.items() if key != "partnerCode"
-        }
-        logging.info(f"Filtering for {show_filters}")
-        logging.info(f"In the following years {self.start_year} - {self.end_year}.")
+            for year in self.config.years:
+                logging.info(f"starting data gathering for year: {year}")
+                df = self.get_df_by_year(year, query_statement)
 
-        query_statement = self.generate_filter()
-
-        for year in self.years:
-            logging.info(f"starting data gathering for year: {year}")
-            df = self.get_df_by_year(year, query_statement)
-
-            if df.empty:
-                logging.info(
-                    f"No requested {self.classification_code} data for {year}."
-                )
-                continue
-            year_df = self.clean(df)
-            if self.output_by_year:
-                self.write_output_file(year_df, year)
-            else:
-                all_years_df = pd.concat([all_years_df, year_df], axis=0)
-        if not self.output_by_year:
-            self.write_output_file(all_years_df)
-        logging.info(f"Requested file(s) available at {datetime.now()}")
+                if df.empty:
+                    logging.info(
+                        f"No requested {self.classification_code} data for {year}."
+                    )
+                    continue
+                year_df = self.clean(df)
+                if self.output_by_year:
+                    self.write_output_file(year_df, year)
+                else:
+                    all_years_df = pd.concat([all_years_df, year_df], axis=0)
+            if not self.output_by_year:
+                self.write_output_file(all_years_df)
+            logging.info(f"Requested file(s) available at {datetime.now()}")
 
     def write_output_file(self, df, year=None):
         """ """
@@ -365,13 +228,6 @@ class ComtradeCompactor(object):
                 self.src_dir = os.path.join("/n/hausmann_lab/lab/atlas/data/raw", "S2")
 
         if self.requests_all_reporters:
-            # year_df = dd.read_csv(os.path.join(self.src_dir, str(year), "*.gz"),
-            #           compression='gzip',
-            #           sep='\t',
-            #           usecols=self.columns,
-            #           dtype=self.dtypes_dict,
-            #           blocksize=None,
-            #          )
             all_reporters = glob.glob(os.path.join(self.src_dir, str(year), "*.gz"))
             year_df = pd.DataFrame()
             for file in all_reporters:
@@ -448,6 +304,17 @@ class ComtradeCompactor(object):
         for df in self.read_and_filter_files(year, query_statement):
             year_df = pd.concat([year_df, df], axis=0, ignore_index=True)
         return year_df
+    
+    
+    def filter_data(self):
+        """
+        """
+        # by year
+        # remove all group reporters
+        # filter
+        # product digitlevel column based on commodity code
+        # zero digit value replaces the word TOTAL
+        pass
 
     def generate_filter(self) -> str:
         """
