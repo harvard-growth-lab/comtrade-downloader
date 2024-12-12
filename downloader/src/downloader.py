@@ -87,12 +87,13 @@ class BaseDownloader:
         self, year: int, year_path: Path, last_updated: datetime, num_attempts=3
     ):
         self.year_path = year_path
+        requested_reporters = []
         if self.config.reporter_iso3_codes:
             requested_reporters = comtradeapicall.convertCountryIso3ToCode(self.config.reporter_iso3_codes[0])
         attempt = 0
         while attempt < num_attempts:
             try:
-                self.execute_download(year, last_updated, reporter_code=requested_reporters if requested_reporters else [])
+                self.execute_download(year, last_updated, reporter_code=requested_reporters if requested_reporters else None)
                 return
             except ConnectionResetError as e:
                 wait = 2**attempt

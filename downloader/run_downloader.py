@@ -30,12 +30,12 @@ def main():
     config_HS = ComtradeConfig(
         api_key=os.environ.get('ELLIE_API_KEY'),
         output_dir="/n/hausmann_lab/lab/atlas/data/",
-        download_type='classic', #options "classic", "final"
-        classification_code='HS',
+        download_type='final', #options "classic", "final"
+        classification_code='H0',
         log_level='INFO',
-        start_year=2020, #1960,
-        end_year=2020, #datetime.now().year,
-        reporter_iso3_codes=['USA,CHN'],
+        start_year=1995, #1960,
+        end_year=1995, #datetime.now().year,
+        reporter_iso3_codes=[],
         partner_iso3_codes=[],
         commodity_codes=[],
         flow_codes=[],  # exports (X), imports (M), Cost of Insurance-Freight (CA)

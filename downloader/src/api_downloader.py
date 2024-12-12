@@ -60,7 +60,10 @@ class ComtradeDownloader(object):
                 if last_updated == self.downloader.earliest_date or self.config.force_full_download
                 else self.replace_raw_files_with_updated_reports(year, year_path)
             )
-            self.generate_download_report(year_path, relocated_files)
+            downloaded_files = self.generate_download_report(year_path, relocated_files)
+            if not downloaded_files:
+                self.config.logger.info(f"No new files downloaded for {year}.")
+                continue
             self.config.logger.info(f"Generated download report for {year}.")
             self.downloader.handle_corrupt_files(year)
             df = self.aggregate_data_by_year(year)
@@ -171,7 +174,7 @@ class ComtradeDownloader(object):
         # used in pipeline
         df.to_parquet(
             Path(
-                self.config.aggregated_by_year_stata_path / 
+                self.config.aggregated_by_year_parquet_path / 
                 f"comtrade_{self.config.classification_code}_{year}.parquet",
             ),
             compression="snappy",
@@ -212,6 +215,8 @@ class ComtradeDownloader(object):
             report_data["files"].append(file_data)
 
         df = pd.DataFrame(report_data["files"])
+        if df.empty:
+            return False
         df["download_time"] = report_data["report_time"]
         df["classification"] = report_data["classification"]
 
@@ -222,6 +227,7 @@ class ComtradeDownloader(object):
         except FileNotFoundError:
             pass
         df.to_csv(Path(self.config.download_report_path / file_name), index=False)
+        return True
 
 
     def remove_tmp_dir(self, tmp_path):
