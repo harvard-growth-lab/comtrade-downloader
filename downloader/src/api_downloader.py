@@ -63,11 +63,10 @@ class ComtradeDownloader(object):
             self.generate_download_report(year_path, relocated_files)
             self.config.logger.info(f"Generated download report for {year}.")
             self.downloader.handle_corrupt_files(year)
-            self.df = self.aggregate_data_by_year(year)
+            df = self.aggregate_data_by_year(year)
             # integrated compactor
-            self.filter_data()
-            # INFO:root:Filtering for {'partner2Code': [0], 'cmdCode': [], 'motCode': ['0'], 'customsCode': ['C00'], 'flowCode': ['M', 'X', 'RM', 'RX']}
-            
+            df = self.downloader.atlas_data_filter(df)
+            df = self.downloader.clean_data(df)            
             self.save_combined_comtrade_year(df, year)
 
     def get_last_download_date(self, year):
@@ -161,22 +160,15 @@ class ComtradeDownloader(object):
             )
         return df
     
-    def filter_data(self):
-        import pdb
-        pdb.set_trace()
 
     def save_combined_comtrade_year(self, df, year):
         """
         Saves output to parquet and stata. Compactor uses parquet file format
         """
         self.config.logger.info(f"Saving aggregated data file for {year}.")
-        df.to_stata(
-            Path(
-                self.config.aggregated_by_year_stata_path / f"comtrade_{self.config.classification_code}_{year}.dta",
-            ),
-            write_index=False,
-        )
-
+        df = df[['period','reporterISO3','partnerISO3','flowCode','classificationCode', 'digitLevel','cmdCode', 'CIFValue', 'FOBValue', 'primaryValue']]
+               
+        # used in pipeline
         df.to_parquet(
             Path(
                 self.config.aggregated_by_year_stata_path / 
@@ -184,6 +176,16 @@ class ComtradeDownloader(object):
             ),
             compression="snappy",
             index=False,
+        )
+        # requirement to cast ints to floats for stata files
+        df.loc[:, 'period'] = df.period.astype(float)
+
+        # ready for stata users of the lab
+        df.to_stata(
+            Path(
+                self.config.aggregated_by_year_stata_path / f"comtrade_{self.config.classification_code}_{year}.dta",
+            ),
+            write_index=False,
         )
         del df
 

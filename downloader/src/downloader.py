@@ -23,9 +23,9 @@ class BaseDownloader:
         # "customsCode": "string",
         # "mosCode": "int16",
         # "motCode": "int16",
-        "qtyUnitCode": "int8",
-        "qty": "float64",
-        "isQtyEstimated": "int8",
+        # "qtyUnitCode": "int8",
+        # "qty": "float64",
+        # "isQtyEstimated": "int8",
         "CIFValue": "float64",
         "FOBValue": "float64",
         "primaryValue": "float64",
@@ -58,7 +58,7 @@ class BaseDownloader:
            "PartnerCodeIsoAlpha3": "partnerISO3",
         })
         self.partners = self.partners[~self.partners.partnerISO3.isin([self.NES_COUNTRIES])]
-
+        
 
     @contextmanager
     def suppress_stdout(self):
@@ -78,6 +78,11 @@ class BaseDownloader:
     def execute_download(self, year: int, year_path: Path, last_updated: datetime):
         pass
 
+    def atlas_data_filter(self, df: pd.DataFrame):
+        query_statement = "(flowCode == 'M' or flowCode == 'X' or flowCode == 'RM' or flowCode == 'RX')"
+        df = df.query(query_statement)
+        return self._handle_digit_level(df)
+    
     def download_with_retries(
         self, year: int, year_path: Path, last_updated: datetime, num_attempts=3
     ):
@@ -100,6 +105,24 @@ class BaseDownloader:
                 self.config.logger.info(f"An error occurred: {str(e)}")
                 attempt += 1
         self.config.logger.warning(f"reached max attempts {num_attempts}")
+        
+    def clean_data(self, df):
+        """
+        Adds ISOCode columns for reporter and partner countries
+        """
+        # WLD is partner_code 0 
+        df.loc[df.partnerCode==0, 'partnerISO3'] = "WLD"
+        # iso_code S19 as reported by Comtrade is Taiwan
+        df.loc[df.partnerCode==490, 'partnerISO3'] = "TWN"
+        df.loc[df.reporterCode==490, 'reporterISO3'] = "TWN"
+        
+        df = df[~df.partnerISO3.isin(self.NES_COUNTRIES)]
+        
+        # South Africa represented in Comtrade as ZA1 and ZAF
+        df.loc[df.reporterISO3=="ZA1", "reporterISO3"] = "ZAF"
+        df.loc[df.partnerISO3=="ZA1", "partnerISO3"] = "ZAF"
+        return df
+
 
     def _find_corrupt_files(self, year):
         """return any empty or corrupted files."""
@@ -141,10 +164,6 @@ class BaseDownloader:
                 self.config.logger.info(
                     f"... requesting from api {year}-{reporter_code}."
                 )
-                import pdb
-
-                pdb.set_trace()
-
                 self.execute_download(year, last_updated, reporter_code)
                 # attempt to read in all re-downloaded file using reporter code
                 try:
@@ -176,7 +195,18 @@ class BaseDownloader:
                     f"download failed, removing from raw downloaded folder {f}"
                 )
                 shutil.move(f, Path(self.config.corrupted_path / ComtradeFile(f).name))
+                
+                
+    def _handle_digit_level(self, df: pd.DataFrame):
+        # create product digitlevel column based on commodity code
+        df = df.assign(
+            digitLevel=df["cmdCode"].str.len()
+        )
+        # zero digit value replaces the word TOTAL
+        df.loc[df.cmdCode == "TOTAL", "digitLevel"] = 0
+        return df
 
+        
 
 class ClassicDownloader(BaseDownloader):
     """
@@ -205,6 +235,7 @@ class ClassicDownloader(BaseDownloader):
         with self.suppress_stdout() if self.config.suppress_print else nullcontext():
             comtradeapicall.bulkDownloadFinalClassicFile(**params)
             
+            
     def get_reporters_by_data_availability(self, year: int, latest_date: datetime):
         df = comtradeapicall.getFinalClassicDataBulkAvailability(
             self.config.api_key,
@@ -227,13 +258,13 @@ class BulkDownloader(BaseDownloader):
 
     def __init__(self, config: ComtradeConfig):
         super().__init__(config)
-        self.columns |={
-            "partner2Code": "int16",
-            "cmdCode": "string",
-            "customsCode": "string",
-            "mosCode": "int16",
-            "motCode": "int16",
-        }
+        # self.columns |={
+        #     "partner2Code": "int16",
+        #     # "cmdCode": "string",
+        #     "customsCode": "string",
+        #     "mosCode": "int16",
+        #     "motCode": "int16",
+        # }
 
 
     def execute_download(self, year: int, last_updated, reporter_code):

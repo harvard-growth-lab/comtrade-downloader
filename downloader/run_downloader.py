@@ -35,7 +35,7 @@ def main():
         log_level='INFO',
         start_year=2020, #1960,
         end_year=2020, #datetime.now().year,
-        reporter_iso3_codes=['USA,RUS,FRA,CHN'],
+        reporter_iso3_codes=['USA,CHN'],
         partner_iso3_codes=[],
         commodity_codes=[],
         flow_codes=[],  # exports (X), imports (M), Cost of Insurance-Freight (CA)
