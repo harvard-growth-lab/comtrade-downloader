@@ -3,6 +3,7 @@ import regex as re
 from datetime import datetime
 import logging
 import os
+import sys
 
 
 class ComtradeConfig:
@@ -116,6 +117,12 @@ class ComtradeConfig:
     def _setup_logger(self, log_level) -> logging.Logger:
         logger = logging.getLogger("ComtradeDownloader")
         logger.setLevel(log_level)
+        # Create handler
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        # Add handler to logger
+        logger.addHandler(handler)
         self.logger = logger
 
     def _setup_paths(self):

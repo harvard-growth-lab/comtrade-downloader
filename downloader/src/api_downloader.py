@@ -35,7 +35,7 @@ class ComtradeDownloader(object):
             last_updated = self.get_last_download_date(year)
             if (
                 last_updated > self.downloader.earliest_date
-                and not self.config.force_full_download
+                and not self.config.force_full_download and not self.config.reporter_iso3_codes
             ):
                 updated_reporters = self.downloader.get_reporters_by_data_availability(
                     year, last_updated
@@ -49,7 +49,7 @@ class ComtradeDownloader(object):
                 last_updated = self.downloader.earliest_date
                 year_path = Path(self.config.raw_files_path / str(year))
                 self.config.logger.info(
-                    f"Downloading all {self.config.classification_code} - {year}."
+                    f"Downloading {self.config.classification_code} - {year} for {self.config.reporter_iso3_codes if self.config.reporter_iso3_codes else 'all reporters'}."
                 )
                 
             year_path.mkdir(parents=True, exist_ok=True)
@@ -108,23 +108,31 @@ class ComtradeDownloader(object):
             ComtradeFile(f).reporter_code: f for f in raw_year_path.glob("*.gz")
         }
 
-        for updated in updated_files:
-            try:
-                # Archive existing file if present
-                if outdated := raw_files.get(ComtradeFile(updated).reporter_code):
-                    relocated.append(outdated)
-                # Move new file to raw
-                shutil.move(str(updated), str(raw_year_path))
-                relocated.append(updated)
-            except shutil.Error as e:
-                self.config.logger.error(f"Failed to move updated {updated} to raw files: {e}")
-            try:
-                shutil.move(str(outdated), str(archive_path))
-            except shutil.Error as e:
-                self.config.logger.error(f"Failed to move {outdated} to archived files: {e}")
-
+        for updated_file in updated_files:
+            updated_reporter = ComtradeFile(updated_file).reporter_code
+            outdated_file = raw_files.get(ComtradeFile(updated_file).reporter_code)
+            if outdated_file and ComtradeFile(updated_file).published_date > ComtradeFile(outdated_file).published_date:
+                shutil.move(outdated_file, str(archive_path))
+            elif outdated_file:
+                self.config.logger.info(f"already previously downloaded, {updated_file.name} as {outdated_file.name}")
+                continue
+            shutil.move(str(updated_file), str(raw_year_path))
+            relocated.append(updated_file)
         self.config.logger.info("Raw files updated with latest data")
+        self.remove_tmp_dir(os.path.join(self.config.latest_path, str(year)))
         return relocated
+                
+                
+#             except shutil.Error as e:
+#                 self.config.logger.error(f"Failed to move updated {updated} to raw files: {e}")
+#             try:
+#                 if outdated is not None:
+                    
+#             except shutil.Error as e:
+#                 self.config.logger.error(f"Failed to move {outdated} to archived files: {e}")
+
+        
+#         return relocated
 
     def aggregate_data_by_year(self, year):
         """"""
@@ -234,7 +242,7 @@ class ComtradeDownloader(object):
         """ """
         for f in glob.glob(os.path.join(tmp_path, "*.gz")):
             try:
-                os.move(f)
+                os.remove(f)
             except OSError as e:
                 self.config.logger.info(f"Error: {f} : {e.strerror}")
 

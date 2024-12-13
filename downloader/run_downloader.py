@@ -35,7 +35,7 @@ def main():
         log_level='INFO',
         start_year=1995, #1960,
         end_year=1995, #datetime.now().year,
-        reporter_iso3_codes=[],
+        reporter_iso3_codes=['SAU'], #list of iso3codes
         partner_iso3_codes=[],
         commodity_codes=[],
         flow_codes=[],  # exports (X), imports (M), Cost of Insurance-Freight (CA)

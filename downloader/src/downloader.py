@@ -89,7 +89,7 @@ class BaseDownloader:
         self.year_path = year_path
         requested_reporters = []
         if self.config.reporter_iso3_codes:
-            requested_reporters = comtradeapicall.convertCountryIso3ToCode(self.config.reporter_iso3_codes[0])
+            requested_reporters = comtradeapicall.convertCountryIso3ToCode(",".join(self.config.reporter_iso3_codes))
         attempt = 0
         while attempt < num_attempts:
             try:
@@ -230,9 +230,8 @@ class ClassicDownloader(BaseDownloader):
             "reporterCode": reporter_code,
             "decompress": False,
         }
-        if last_updated:
+        if last_updated != self.earliest_date:
             params["publishedDateFrom"] = last_updated.strftime("%Y-%m-%d")
-
         with self.suppress_stdout() if self.config.suppress_print else nullcontext():
             comtradeapicall.bulkDownloadFinalClassicFile(**params)
             
@@ -279,9 +278,9 @@ class BulkDownloader(BaseDownloader):
             "reporterCode": reporter_code,
             "decompress": False,
         }
-        if last_updated:
+        if last_updated != self.earliest_date:
             params["publishedDateFrom"] = last_updated.strftime("%Y-%m-%d")
-            
+
         with self.suppress_stdout() if self.config.suppress_print else nullcontext():
             comtradeapicall.bulkDownloadFinalFile(**params)
             
