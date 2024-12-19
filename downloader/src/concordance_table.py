@@ -79,10 +79,9 @@ class ConcordanceTable:
         self.df = self.df.merge(self.concordance_table, on=[self.classification_code], how='left')
         # self.df = self.df.drop(columns=self.classification_code)
         for trade_val in self.trade_val_cols:
-            try:
-                df.loc[:, trade_val] = df.eql_distribution*df[trade_val]
-            except:
-                pass
+            import pdb
+            pdb.set_trace()
+            self.df.loc[:, trade_val] = self.df.eql_distribution*self.df[trade_val]
         # self.df = self.df.drop(columns=self.eql_distribution)
         
         import pdb
