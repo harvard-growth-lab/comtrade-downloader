@@ -15,7 +15,7 @@ import numpy as np
 
 
 class ComtradeCompactor(ComtradeConfig):
-    GROUP_REPORTERS = {"EU": "097", "ASEAN": "975"}
+    GROUP_REPORTERS = {"EU": "097", "ASEAN": "975"} #R4: ASEAN
     CLASSIFICATION_CODES = {"H0 (HS-92)": "H0", "H4 (HS-12)": "H4", "H5 (HS-17)": "H5", "SITC": "SITC"}
 
     def __init__(
@@ -54,18 +54,6 @@ class ComtradeCompactor(ComtradeConfig):
             "CIFValue": np.float32,
             "FOBValue": np.float32,
         }
-
-        # self.src_dir = os.path.join(
-        #     "/n/hausmann_lab/lab/atlas/data/raw",
-        #     self.classification_code,
-        # )
-
-        # self.output_dir = os.path.join(
-        #     "/n/hausmann_lab/lab/_shared_dev_data/compactor_output",
-        #     os.environ.get("USER"),
-        #     self.classification_code,
-        # )
-        # os.makedirs(self.output_dir, exist_ok=True)
 
         self.run_time = datetime.datetime.now().strftime("%Y-%m-%d_%H_%M_%S")
 
@@ -231,10 +219,7 @@ class ComtradeCompactor(ComtradeConfig):
             all_reporters = glob.glob(os.path.join(self.src_dir, str(year), "*.gz"))
             year_df = pd.DataFrame()
             for file in all_reporters:
-                if file.split("/")[-1][17:20] not in [
-                    self.GROUP_REPORTERS["ASEAN"],
-                    self.GROUP_REPORTERS["EU"],
-                ]:
+                if ComtradeFile(file).reporterCode not in self.GROUP_REPORTERS.values():
                     reporter_dfs = dd.read_csv(
                         file,
                         compression="gzip",
@@ -265,10 +250,7 @@ class ComtradeCompactor(ComtradeConfig):
                 # extracts reporter code based on outputted file naming convention
                 reporter_code = src_name.split("/")[-1][17:20]
                 # do not include group reporters
-                if reporter_code in [
-                    self.GROUP_REPORTERS["ASEAN"],
-                    self.GROUP_REPORTERS["EU"],
-                ]:
+                if ComtradeFile(file).reporterCode not in self.GROUP_REPORTERS.values():
                     continue
                 if int(reporter_code) in self.reporter_codes:
                     reporter_df = pd.read_csv(

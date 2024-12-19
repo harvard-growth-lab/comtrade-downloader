@@ -6,6 +6,8 @@ ComtradeDownloader object uses apicomtradecall to output reporter data
 by Classification Code by Year by Reporter
 """
 import pandas as pd
+import dask.dataframe as dd
+from dask.distributed import Client
 import glob
 import os
 import shutil
@@ -66,6 +68,14 @@ class ComtradeDownloader(object):
                 continue
             self.config.logger.info(f"Generated download report for {year}.")
             self.downloader.handle_corrupt_files(year)
+        
+    def run_compactor(self):
+        self.downloader = BaseDownloader.create_downloader(self.config)
+        client = Client(n_workers=2, threads_per_worker=8)
+        self.config.logger.info(f"Dask client started: {client}")
+
+        for year in self.config.years:
+            self.config.logger.info(f"Running compactor for {year}")
             df = self.aggregate_data_by_year(year)
             # integrated compactor
             df = self.downloader.atlas_data_filter(df)
@@ -134,29 +144,33 @@ class ComtradeDownloader(object):
         
 #         return relocated
 
+
+
     def aggregate_data_by_year(self, year):
         """"""
         year_path = Path(self.config.raw_files_path) / str(year)
-        df = pd.concat(
-            (
-                pd.read_csv(
-                    f,
-                    compression="gzip",
-                    sep="\t",
-                    usecols=list(self.downloader.columns.keys()),
-                    dtype=self.downloader.columns,
-                )
-                for f in glob.glob(os.path.join(year_path, "*.gz"))
-            ),
-            ignore_index=True,
+        dfs = [dd.read_csv(
+            f,
+            compression="gzip",
+            sep="\t",
+            usecols=list(self.downloader.columns.keys()),
+            dtype=self.downloader.columns,
+            blocksize=None, #gzip files can't be broken down further
+            # ignore_index=True
         )
+        for f in glob.glob(os.path.join(year_path, "*.gz"))
+        ]
+        
+        ddf = dd.concat(dfs)
+        ddf.groupby(['reporterCode', 'partnerCode', 'flowCode', 'cmdCode']).agg('sum').reset_index()
+        ddf = ddf.drop(columns='qty')
+        df = ddf.compute()
 
         # Merge reporter and partner reference tables for ISO3 codes
-        df = df.merge(self.downloader.reporters, on="reporterCode", how="left")
-        df = df.merge(self.downloader.partners, on="partnerCode", how="left")
-
+        df = df.merge(self.downloader.reporters, on="reporterCode", how="left").merge(self.downloader.partners, on="partnerCode", how="left")
+        
         if self.config.partner_iso3_codes:
-            df = df[df.partnerISO3.isin(self.config.partner_iso3_codes)]
+            df = ddf[ddf.partnerISO3.isin(self.config.partner_iso3_codes)]
 
         if not self.config.drop_secondary_partners:
             df = df.merge(
@@ -177,9 +191,6 @@ class ComtradeDownloader(object):
         Saves output to parquet and stata. Compactor uses parquet file format
         """
         self.config.logger.info(f"Saving aggregated data file for {year}.")
-        df = df[['period','reporterISO3','partnerISO3','flowCode','classificationCode', 'digitLevel','cmdCode', 'CIFValue', 'FOBValue', 'primaryValue']]
-               
-        # used in pipeline
         df.to_parquet(
             Path(
                 self.config.aggregated_by_year_parquet_path / 
@@ -187,16 +198,7 @@ class ComtradeDownloader(object):
             ),
             compression="snappy",
             index=False,
-        )
-        # requirement to cast ints to floats for stata files
-        df.loc[:, 'period'] = df.period.astype(float)
-
-        # ready for stata users of the lab
-        df.to_stata(
-            Path(
-                self.config.aggregated_by_year_stata_path / f"comtrade_{self.config.classification_code}_{year}.dta",
-            ),
-            write_index=False,
+            
         )
         del df
 

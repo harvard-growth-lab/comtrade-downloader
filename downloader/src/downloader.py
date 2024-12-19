@@ -9,22 +9,23 @@ import os, sys
 import comtradeapicall
 import glob
 import pandas as pd
+import dask.dataframe as dd
 
 
 class BaseDownloader:
     columns = {
-        "period": "int16",
+        # "period": "int16",
         "reporterCode": "int16",
         "flowCode": "category",
         "partnerCode": "int16",
         # "partner2Code": "int16",
-        "classificationCode": "string",
+        # "classificationCode": "string",
         "cmdCode": "string",
         # "customsCode": "string",
         # "mosCode": "int16",
         # "motCode": "int16",
         # "qtyUnitCode": "int8",
-        # "qty": "float64",
+        "qty": "float64",
         # "isQtyEstimated": "int8",
         "CIFValue": "float64",
         "FOBValue": "float64",
@@ -33,7 +34,7 @@ class BaseDownloader:
     
     NES_COUNTRIES = ['_AC','_X ','X1 ', 'XX ','R91','A49','E29','R20','MCO','X2 ', 'A79','A59','F49','O19','F19','E19','F97']
 
-    EXCL_REPORTER_GROUPS = {'ASEAN': 'R4', 
+    EXCL_REPORTER_GROUPS = {'ASEAN': 'R4 ', # trailing space
                            'European Union': 'EUR', 
                            }
 
@@ -50,7 +51,9 @@ class BaseDownloader:
         ].rename(columns={"reporterCodeIsoAlpha3": "reporterISO3"})
         self.reporters = self.reporters[~self.reporters.reporterISO3.isin(self.EXCL_REPORTER_GROUPS.values())]
         self.reporters = self.reporters[~self.reporters.reporterISO3.isin([self.NES_COUNTRIES])]
+        self.reporters['reporterCode'] = self.reporters['reporterCode'].astype(self.columns['reporterCode'])
 
+        
         self.partners = comtradeapicall.getReference("partner")[
            ["PartnerCode", "PartnerCodeIsoAlpha3"]
         ].rename(columns={
@@ -58,6 +61,7 @@ class BaseDownloader:
            "PartnerCodeIsoAlpha3": "partnerISO3",
         })
         self.partners = self.partners[~self.partners.partnerISO3.isin([self.NES_COUNTRIES])]
+        self.partners['partnerCode'] = self.partners['partnerCode'].astype(self.columns['partnerCode'])
         
 
     @contextmanager
@@ -79,8 +83,7 @@ class BaseDownloader:
         pass
 
     def atlas_data_filter(self, df: pd.DataFrame):
-        query_statement = "(flowCode == 'M' or flowCode == 'X' or flowCode == 'RM' or flowCode == 'RX')"
-        df = df.query(query_statement)
+        df = df[df.flowCode.isin(['M','X','RM','RX'])]
         return self._handle_digit_level(df)
     
     def download_with_retries(
@@ -113,16 +116,23 @@ class BaseDownloader:
         """
         # WLD is partner_code 0 
         df.loc[df.partnerCode==0, 'partnerISO3'] = "WLD"
+        # ddf = ddf.assign(partnerISO3=ddf.partnerISO3.mask(ddf.partnerCode == 0, 'WLD'))
         # iso_code S19 as reported by Comtrade is Taiwan
+        # ddf = ddf.assign(partnerISO3=ddf.partnerISO3.mask(ddf.partnerCode == 490, 'TWN'))
+        # ddf = ddf.assign(reporterISO3=ddf.reporterISO3.mask(ddf.reporterCode == 490, 'TWN'))
+        
         df.loc[df.partnerCode==490, 'partnerISO3'] = "TWN"
         df.loc[df.reporterCode==490, 'reporterISO3'] = "TWN"
         
         df = df[~df.partnerISO3.isin(self.NES_COUNTRIES)]
         
         # South Africa represented in Comtrade as ZA1 and ZAF
+        # ddf = ddf.assign(partnerISO3=ddf.partnerISO3.mask(ddf.reporterISO3 == 'ZA1', 'ZAF'))
+        # ddf = ddf.assign(reporterISO3=ddf.reporterISO3.mask(ddf.reporterISO3 == 'ZA1', 'ZAF'))
+
         df.loc[df.reporterISO3=="ZA1", "reporterISO3"] = "ZAF"
         df.loc[df.partnerISO3=="ZA1", "partnerISO3"] = "ZAF"
-        return df
+        return df.drop(columns=['reporterCode','partnerCode'])
 
 
     def _find_corrupt_files(self, year):
@@ -204,6 +214,7 @@ class BaseDownloader:
             digitLevel=df["cmdCode"].str.len()
         )
         # zero digit value replaces the word TOTAL
+        # ddf = ddf.assign(digitLevel=ddf.digitLevel.mask(ddf.cmdCode == 'TOTAL', 0))
         df.loc[df.cmdCode == "TOTAL", "digitLevel"] = 0
         return df
 
@@ -231,7 +242,7 @@ class ClassicDownloader(BaseDownloader):
             "decompress": False,
         }
         if last_updated != self.earliest_date:
-            params["publishedDateFrom"] = last_updated.strftime("%Y-%m-%d")
+            params["publishedDateFrom"] = (last_updated + timedelta(days=1)).strftime("%Y-%m-%d")
         with self.suppress_stdout() if self.config.suppress_print else nullcontext():
             comtradeapicall.bulkDownloadFinalClassicFile(**params)
             
@@ -279,7 +290,7 @@ class BulkDownloader(BaseDownloader):
             "decompress": False,
         }
         if last_updated != self.earliest_date:
-            params["publishedDateFrom"] = last_updated.strftime("%Y-%m-%d")
+            params["publishedDateFrom"] = (last_updated + timedelta(days=1)).strftime("%Y-%m-%d")
 
         with self.suppress_stdout() if self.config.suppress_print else nullcontext():
             comtradeapicall.bulkDownloadFinalFile(**params)
