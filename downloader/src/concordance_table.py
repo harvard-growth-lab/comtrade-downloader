@@ -8,7 +8,7 @@ class ConcordanceTable:
     """
     Uses Concordance Table provided by Comtrade to convert cleaned CCPY 6digit product codes
     to a target classification code.
-    
+
     This is used when comtrade trade data is downloaded by classification code
     """
 

@@ -74,11 +74,10 @@ class ComtradeConfig:
     @property
     def raw_files_path(self) -> Path:
         return self.output_dir / "raw" / self.classification_code
-    
+
     @property
     def raw_files_parquet_path(self) -> Path:
         return self.output_dir / "raw_parquet" / self.classification_code
-
 
     @property
     def archived_path(self) -> Path:

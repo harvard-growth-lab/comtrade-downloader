@@ -44,7 +44,6 @@ class ComtradeDownloader(object):
                 updated_reporters = self.downloader.get_reporters_by_data_availability(
                     year, last_updated
                 )
-                # year_path = Path(self.config.latest_path / str(year))
                 self.config.logger.info(
                     f"Downloading reporter {self.config.classification_code} - {year} "
                     f"files updated since {last_updated}."
@@ -57,33 +56,23 @@ class ComtradeDownloader(object):
 
             year_path.mkdir(parents=True, exist_ok=True)
             self.downloader.download_with_retries(year, year_path, last_updated)
-            
+
             # folder to save parquet files
             parquet_path = Path(self.config.raw_files_parquet_path / str(year))
             parquet_path.mkdir(parents=True, exist_ok=True)
 
             # process files (validate and convert to parquet)
             self.downloader.process_downloaded_files(year, convert=True)
-            
+
             relocated_files = self.keep_most_recent_published_data(year, parquet_path)
-            
-            import pdb
-            pdb.set_trace()
-                    
-            # relocated_files = (
-            #     []
-            #     if last_updated == self.downloader.earliest_date
-            #     or self.config.force_full_download
-            #     else self.keep_most_recent_published_data(year, parquet_path)
-            # )
-            downloaded_files = self.generate_download_report(parquet_path, relocated_files)
+
+            downloaded_files = self.generate_download_report(
+                parquet_path, relocated_files
+            )
             if not downloaded_files:
                 self.config.logger.info(f"No new files downloaded for {year}.")
                 continue
             self.config.logger.info(f"Generated download report for {year}.")
-            import pdb
-            pdb.set_trace()
-            # self.downloader.handle_corrupt_files(year)
 
     def run_compactor(self):
         self.downloader = BaseDownloader.create_downloader(self.config)
@@ -122,47 +111,44 @@ class ComtradeDownloader(object):
         """ """
         # generate dictionary with reporter code key and datetimes as column values
         files = glob.glob(os.path.join(path, "*.parquet"))
-        reporter_dates = {code: [] for code in {ComtradeFile(f).reporter_code for f in files}}
+        reporter_dates = {
+            code: [] for code in {ComtradeFile(f).reporter_code for f in files}
+        }
         for f in files:
-            reporter_dates[ComtradeFile(f).reporter_code].append(ComtradeFile(f).published_date)
-        
-        duplicated = {code: dates for code, dates in reporter_dates.items() if len(dates) >= 2}
+            reporter_dates[ComtradeFile(f).reporter_code].append(
+                ComtradeFile(f).published_date
+            )
+
+        duplicated = {
+            code: dates for code, dates in reporter_dates.items() if len(dates) >= 2
+        }
         if duplicated:
             archive_path = Path(self.config.archived_path) / str(year)
             archive_path.mkdir(exist_ok=True)
         else:
             return
-        
+
         relocated = []
         for reporter, dates in duplicated.items():
             dates.remove(max(dates))
             # get the file names
             outdated_files = ComtradeFiles(files).get_file_names(reporter, dates)
-            
+
             for outdated_file in outdated_files:
                 try:
                     shutil.move(outdated_file, str(archive_path))
                     relocated.append(outdated_file)
                 except shutil.Error as e:
-                    self.config.logger.error(f"Failed to move {outdated_file} to archived files: {e}")
+                    self.config.logger.error(
+                        f"Failed to move {outdated_file} to archived files: {e}"
+                    )
         return relocated
 
-            
-            
         return relocated
-
-    #             except shutil.Error as e:
-    #                 self.config.logger.error(f"Failed to move updated {updated} to raw files: {e}")
-    #             try:
-    #                 if outdated is not None:
-
-
-    #         return relocated
 
     def aggregate_data_by_year(self, year):
-        """
-        """
-        #TODO: setup so only reading in and concating new files to existing file
+        """ """
+        # TODO: setup so only reading in and concating new files to existing file
         year_path = Path(self.config.raw_files_parquet_path) / str(year)
         dfs = [
             dd.read_parquet(

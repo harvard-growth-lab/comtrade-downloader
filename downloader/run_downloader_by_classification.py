@@ -30,13 +30,13 @@ def main():
     # SITC is run through concordance table conversion in atlas cleaning
     
     for classification, classification_start_year in downloaders.items():
-        config_H0 = ComtradeConfig(
+        config_classification = ComtradeConfig(
             api_key=os.environ.get('ELLIE_API_KEY'),
             output_dir="/n/hausmann_lab/lab/atlas/data/",
             download_type='final', #options "classic", "final"
             classification_code=classification,
             log_level='INFO',
-            start_year=2022, #classification_start_year, #1960,
+            start_year=classification_start_year, #1960,
             end_year=2022, #datetime.now().year,
             reporter_iso3_codes=[], #list of iso3codes
             partner_iso3_codes=[],
@@ -53,9 +53,10 @@ def main():
             force_full_download=False,
         )
         print(f"initiating program {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
-        downloader_H0 = ComtradeDownloader(config_H0)
-        downloader_H0.download_comtrade_yearly_bilateral_flows()
-        # downloader_H0.run_compactor()
+        downloader = ComtradeDownloader(config_classification)
+        downloader.download_comtrade_yearly_bilateral_flows()
+        # print(f"requires memory allocation of at least 80GB")
+        # downloader.run_compactor()
         print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 
 if __name__ == "__main__":

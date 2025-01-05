@@ -167,9 +167,10 @@ class BaseDownloader:
         """
         year_path = Path(self.config.raw_files_path / str(year))
         corrupted_files = set()
-        files = glob.glob(os.path.join(self.config.raw_files_parquet_path, str(year), "*.parquet"))
-        parquet_files = [file.split('/')[-1].split('.')[0] for file in files]
-        
+        files = glob.glob(
+            os.path.join(self.config.raw_files_parquet_path, str(year), "*.parquet")
+        )
+        parquet_files = [file.split("/")[-1].split(".")[0] for file in files]
 
         for f in glob.glob(os.path.join(year_path, "*.gz")):
             try:
@@ -191,29 +192,30 @@ class BaseDownloader:
                 self.config.logger.info(f"downloaded empty file: {f}")
                 corrupted_files.add(f)
                 continue
-            
+
             if convert:
-                file_name = f.split('/')[-1].split('.')[0]
+                file_name = f.split("/")[-1].split(".")[0]
                 if file_name not in parquet_files:
                     df = pd.read_csv(
-                            f,
-                            sep="\t",
-                            compression="gzip",
-                            usecols=list(self.columns.keys()),
-                            dtype=self.columns,
-                        )
-                    
+                        f,
+                        sep="\t",
+                        compression="gzip",
+                        usecols=list(self.columns.keys()),
+                        dtype=self.columns,
+                    )
+
                     df.to_parquet(
                         Path(
-                            self.config.raw_files_parquet_path / str(year) / f"{file_name}.parquet",
-                    ),
-                    compression="snappy",
-                    index=False,
+                            self.config.raw_files_parquet_path
+                            / str(year)
+                            / f"{file_name}.parquet",
+                        ),
+                        compression="snappy",
+                        index=False,
                     )
                     del df
         self.handle_corrupt_files(year, corrupted_files)
 
-    
     def _find_corrupt_files(self, year):
         """return any empty or corrupted files."""
         dfs = []
@@ -278,9 +280,6 @@ class BaseDownloader:
                 corruped_files.remove(file)
             attempts += 1
         if corrupted_files:
-            import pdb
-
-            pdb.set_trace()
             for f in corrupted_files:
                 self.config.logger.info(
                     f"download failed, removing from raw downloaded folder {f}"
