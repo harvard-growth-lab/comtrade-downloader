@@ -35,7 +35,7 @@ class ComtradeConfig:
         # Required fields
         self.api_key = api_key
         self.download_type = download_type
-        self.output_dir = Path(output_dir ) / self.REQUESTED_DATA[self.download_type]
+        self.output_dir = Path(output_dir) / self.REQUESTED_DATA[self.download_type]
         self.classification_code = classification_code
         self.start_year = start_year
         self.end_year = end_year
@@ -74,6 +74,11 @@ class ComtradeConfig:
     @property
     def raw_files_path(self) -> Path:
         return self.output_dir / "raw" / self.classification_code
+    
+    @property
+    def raw_files_parquet_path(self) -> Path:
+        return self.output_dir / "raw_parquet" / self.classification_code
+
 
     @property
     def archived_path(self) -> Path:
@@ -82,15 +87,15 @@ class ComtradeConfig:
     @property
     def corrupted_path(self) -> Path:
         return self.output_dir / "corrupted"
-    
+
     @property
     def aggregated_by_year_stata_path(self) -> Path:
         return self.output_dir / "aggregated_by_year" / "stata"
-    
+
     @property
     def aggregated_by_year_parquet_path(self) -> Path:
         return self.output_dir / "aggregated_by_year" / "parquet"
-    
+
     @property
     def download_report_path(self) -> Path:
         return Path(
@@ -98,7 +103,6 @@ class ComtradeConfig:
             / "atlas_download_reports"
             # / f"download_report_{datetime.now().strftime('%Y-%m-%d')}.csv"
         )
-
 
     def _validate(self):
         if not self.api_key:
@@ -119,7 +123,9 @@ class ComtradeConfig:
         logger.setLevel(log_level)
         # Create handler
         handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
         handler.setFormatter(formatter)
         # Add handler to logger
         logger.addHandler(handler)
@@ -134,6 +140,7 @@ class ComtradeConfig:
             self.aggregated_by_year_stata_path,
             self.aggregated_by_year_parquet_path,
             self.download_report_path,
+            self.raw_files_parquet_path,
         ]
         for path in paths:
             path.mkdir(parents=True, exist_ok=True)

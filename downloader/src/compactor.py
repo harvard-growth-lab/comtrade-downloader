@@ -75,25 +75,6 @@ class ComtradeCompactor(ComtradeConfig):
         self.requests_all_and_world_partners = True
         self.requests_all_partners = True
 
-        # else:
-        #     # map Taiwan back to comtrade iso code definition S19
-        #     partner_iso3_codes = list(
-        #         map(lambda x: x.replace("TWN", "S19"), partner_iso3_codes)
-        #     )
-        #     partner_codes = partners_df[
-        #         partners_df["partnerISO3"].isin(partner_iso3_codes)
-        #     ]
-        #     self.partner_iso3s = partner_codes["partnerISO3"].tolist()
-        #     self.partner_codes = partner_codes["partnerCode"].tolist()
-        #     self.requests_all_and_world_partners = False
-        #     self.requests_all_partners = False
-
-        # self.filter_data()
-        # self.digit_levels = list(digit_level)
-        # self.output_by_year = output_by_year
-        # self.atlas_cleaning = atlas_cleaning
-        # self.data_format = data_format
-
     def compact(self):
         """
         Runs steps to extract user requested data from the raw Comtrade data files

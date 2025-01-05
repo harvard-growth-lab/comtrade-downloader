@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 import regex as re
-from datetime import datetime
+from datetime import datetime, timedelta
 from src.configure_downloader import ComtradeConfig
 from src.comtrade_file import ComtradeFile
 from contextlib import contextmanager, nullcontext
@@ -31,38 +31,66 @@ class BaseDownloader:
         "FOBValue": "float64",
         "primaryValue": "float64",
     }
-    
-    NES_COUNTRIES = ['_AC','_X ','X1 ', 'XX ','R91','A49','E29','R20','MCO','X2 ', 'A79','A59','F49','O19','F19','E19','F97']
 
-    EXCL_REPORTER_GROUPS = {'ASEAN': 'R4 ', # trailing space
-                           'European Union': 'EUR', 
-                           }
+    NES_COUNTRIES = [
+        "_AC",
+        "_X ",
+        "X1 ",
+        "XX ",
+        "R91",
+        "A49",
+        "E29",
+        "R20",
+        "MCO",
+        "X2 ",
+        "A79",
+        "A59",
+        "F49",
+        "O19",
+        "F19",
+        "E19",
+        "F97",
+    ]
+
+    EXCL_REPORTER_GROUPS = {
+        "ASEAN": "R4 ",  # trailing space
+        "European Union": "EUR",
+    }
 
     earliest_date = datetime(1962, 1, 1)
 
     def __init__(self, config):
         self.config = config
         self._setup_reference_data()
-        
-        
+
     def _setup_reference_data(self):
         self.reporters = comtradeapicall.getReference("reporter")[
-           ["reporterCode", "reporterCodeIsoAlpha3"]
+            ["reporterCode", "reporterCodeIsoAlpha3"]
         ].rename(columns={"reporterCodeIsoAlpha3": "reporterISO3"})
-        self.reporters = self.reporters[~self.reporters.reporterISO3.isin(self.EXCL_REPORTER_GROUPS.values())]
-        self.reporters = self.reporters[~self.reporters.reporterISO3.isin([self.NES_COUNTRIES])]
-        self.reporters['reporterCode'] = self.reporters['reporterCode'].astype(self.columns['reporterCode'])
+        self.reporters = self.reporters[
+            ~self.reporters.reporterISO3.isin(self.EXCL_REPORTER_GROUPS.values())
+        ]
+        self.reporters = self.reporters[
+            ~self.reporters.reporterISO3.isin([self.NES_COUNTRIES])
+        ]
+        self.reporters["reporterCode"] = self.reporters["reporterCode"].astype(
+            self.columns["reporterCode"]
+        )
 
-        
         self.partners = comtradeapicall.getReference("partner")[
-           ["PartnerCode", "PartnerCodeIsoAlpha3"]
-        ].rename(columns={
-           "PartnerCode": "partnerCode",
-           "PartnerCodeIsoAlpha3": "partnerISO3",
-        })
-        self.partners = self.partners[~self.partners.partnerISO3.isin([self.NES_COUNTRIES])]
-        self.partners['partnerCode'] = self.partners['partnerCode'].astype(self.columns['partnerCode'])
-        
+            ["PartnerCode", "PartnerCodeIsoAlpha3"]
+        ].rename(
+            columns={
+                "PartnerCode": "partnerCode",
+                "PartnerCodeIsoAlpha3": "partnerISO3",
+            }
+        )
+        self.partners = self.partners[
+            ~self.partners.partnerISO3.isin([self.NES_COUNTRIES])
+        ]
+        self.partners["partnerCode"] = self.partners["partnerCode"].astype(
+            self.columns["partnerCode"]
+        )
 
     @contextmanager
     def suppress_stdout(self):
@@ -83,20 +111,26 @@ class BaseDownloader:
         pass
 
     def atlas_data_filter(self, df: pd.DataFrame):
-        df = df[df.flowCode.isin(['M','X','RM','RX'])]
+        df = df[df.flowCode.isin(["M", "X", "RM", "RX"])]
         return self._handle_digit_level(df)
-    
+
     def download_with_retries(
         self, year: int, year_path: Path, last_updated: datetime, num_attempts=3
     ):
         self.year_path = year_path
         requested_reporters = []
         if self.config.reporter_iso3_codes:
-            requested_reporters = comtradeapicall.convertCountryIso3ToCode(",".join(self.config.reporter_iso3_codes))
+            requested_reporters = comtradeapicall.convertCountryIso3ToCode(
+                ",".join(self.config.reporter_iso3_codes)
+            )
         attempt = 0
         while attempt < num_attempts:
             try:
-                self.execute_download(year, last_updated, reporter_code=requested_reporters if requested_reporters else None)
+                self.execute_download(
+                    year,
+                    last_updated,
+                    reporter_code=requested_reporters if requested_reporters else None,
+                )
                 return
             except ConnectionResetError as e:
                 wait = 2**attempt
@@ -109,32 +143,77 @@ class BaseDownloader:
                 self.config.logger.info(f"An error occurred: {str(e)}")
                 attempt += 1
         self.config.logger.warning(f"reached max attempts {num_attempts}")
-        
+
     def clean_data(self, df):
         """
         Adds ISOCode columns for reporter and partner countries
         """
-        # WLD is partner_code 0 
-        df.loc[df.partnerCode==0, 'partnerISO3'] = "WLD"
-        # ddf = ddf.assign(partnerISO3=ddf.partnerISO3.mask(ddf.partnerCode == 0, 'WLD'))
+        # WLD is partner_code 0
+        df.loc[df.partnerCode == 0, "partnerISO3"] = "WLD"
         # iso_code S19 as reported by Comtrade is Taiwan
-        # ddf = ddf.assign(partnerISO3=ddf.partnerISO3.mask(ddf.partnerCode == 490, 'TWN'))
-        # ddf = ddf.assign(reporterISO3=ddf.reporterISO3.mask(ddf.reporterCode == 490, 'TWN'))
-        
-        df.loc[df.partnerCode==490, 'partnerISO3'] = "TWN"
-        df.loc[df.reporterCode==490, 'reporterISO3'] = "TWN"
-        
+        df.loc[df.partnerCode == 490, "partnerISO3"] = "TWN"
+        df.loc[df.reporterCode == 490, "reporterISO3"] = "TWN"
+
         df = df[~df.partnerISO3.isin(self.NES_COUNTRIES)]
-        
+
         # South Africa represented in Comtrade as ZA1 and ZAF
-        # ddf = ddf.assign(partnerISO3=ddf.partnerISO3.mask(ddf.reporterISO3 == 'ZA1', 'ZAF'))
-        # ddf = ddf.assign(reporterISO3=ddf.reporterISO3.mask(ddf.reporterISO3 == 'ZA1', 'ZAF'))
+        df.loc[df.reporterISO3 == "ZA1", "reporterISO3"] = "ZAF"
+        df.loc[df.partnerISO3 == "ZA1", "partnerISO3"] = "ZAF"
+        return df.drop(columns=["reporterCode", "partnerCode"])
 
-        df.loc[df.reporterISO3=="ZA1", "reporterISO3"] = "ZAF"
-        df.loc[df.partnerISO3=="ZA1", "partnerISO3"] = "ZAF"
-        return df.drop(columns=['reporterCode','partnerCode'])
+    def process_downloaded_files(self, year, convert=False):
+        """
+        Validate Data files and Convert files to Parquet
+        """
+        year_path = Path(self.config.raw_files_path / str(year))
+        corrupted_files = set()
+        files = glob.glob(os.path.join(self.config.raw_files_parquet_path, str(year), "*.parquet"))
+        parquet_files = [file.split('/')[-1].split('.')[0] for file in files]
+        
 
+        for f in glob.glob(os.path.join(year_path, "*.gz")):
+            try:
+                df = pd.read_csv(
+                    f,
+                    sep="\t",
+                    compression="gzip",
+                    usecols=list(self.columns.keys()),
+                    dtype=self.columns,
+                    nrows=1,
+                )
 
+            except EOFError as e:
+                self.config.logger.info(f"downloaded corrupted file: {f}")
+                corrupted_files.add(f)
+                continue
+
+            except pd.errors.EmptyDataError as e:
+                self.config.logger.info(f"downloaded empty file: {f}")
+                corrupted_files.add(f)
+                continue
+            
+            if convert:
+                file_name = f.split('/')[-1].split('.')[0]
+                if file_name not in parquet_files:
+                    df = pd.read_csv(
+                            f,
+                            sep="\t",
+                            compression="gzip",
+                            usecols=list(self.columns.keys()),
+                            dtype=self.columns,
+                        )
+                    
+                    df.to_parquet(
+                        Path(
+                            self.config.raw_files_parquet_path / str(year) / f"{file_name}.parquet",
+                    ),
+                    compression="snappy",
+                    index=False,
+                    )
+                    del df
+        self.handle_corrupt_files(year, corrupted_files)
+
+    
     def _find_corrupt_files(self, year):
         """return any empty or corrupted files."""
         dfs = []
@@ -161,14 +240,15 @@ class BaseDownloader:
                 corrupted_files.add(f)
         return corrupted_files
 
-    def handle_corrupt_files(self, year):
-        corrupted_files = self._find_corrupt_files(year)
+    def handle_corrupt_files(self, year, corrupted_files):
+        # corrupted_files = self._find_corrupt_files(year)
+        self.config.logger.info("handle any corrupted files")
         attempts = 1
         remove_from_corrupted = set()
         # corrupted = False
         while corrupted_files and attempts < 3:
             corrupted = True
-            logging.info(f"Found corrupted files")
+            self.config.logger.info(f"Found corrupted files")
             for corrupted_file in corrupted_files:
                 year = ComtradeFile(corrupted_file).year
                 reporter_code = ComtradeFile(corrupted_file).reporter_code
@@ -206,19 +286,15 @@ class BaseDownloader:
                     f"download failed, removing from raw downloaded folder {f}"
                 )
                 shutil.move(f, Path(self.config.corrupted_path / ComtradeFile(f).name))
-                
-                
+
     def _handle_digit_level(self, df: pd.DataFrame):
         # create product digitlevel column based on commodity code
-        df = df.assign(
-            digitLevel=df["cmdCode"].str.len()
-        )
+        df = df.assign(digitLevel=df["cmdCode"].str.len())
         # zero digit value replaces the word TOTAL
         # ddf = ddf.assign(digitLevel=ddf.digitLevel.mask(ddf.cmdCode == 'TOTAL', 0))
         df.loc[df.cmdCode == "TOTAL", "digitLevel"] = 0
         return df
 
-        
 
 class ClassicDownloader(BaseDownloader):
     """
@@ -242,11 +318,12 @@ class ClassicDownloader(BaseDownloader):
             "decompress": False,
         }
         if last_updated != self.earliest_date:
-            params["publishedDateFrom"] = (last_updated + timedelta(days=1)).strftime("%Y-%m-%d")
+            params["publishedDateFrom"] = (last_updated + timedelta(days=1)).strftime(
+                "%Y-%m-%d"
+            )
         with self.suppress_stdout() if self.config.suppress_print else nullcontext():
             comtradeapicall.bulkDownloadFinalClassicFile(**params)
-            
-            
+
     def get_reporters_by_data_availability(self, year: int, latest_date: datetime):
         df = comtradeapicall.getFinalClassicDataBulkAvailability(
             self.config.api_key,
@@ -266,7 +343,6 @@ class ClassicDownloader(BaseDownloader):
 
 
 class BulkDownloader(BaseDownloader):
-
     def __init__(self, config: ComtradeConfig):
         super().__init__(config)
         # self.columns |={
@@ -276,7 +352,6 @@ class BulkDownloader(BaseDownloader):
         #     "mosCode": "int16",
         #     "motCode": "int16",
         # }
-
 
     def execute_download(self, year: int, last_updated, reporter_code):
         params = {
@@ -290,12 +365,13 @@ class BulkDownloader(BaseDownloader):
             "decompress": False,
         }
         if last_updated != self.earliest_date:
-            params["publishedDateFrom"] = (last_updated + timedelta(days=1)).strftime("%Y-%m-%d")
+            params["publishedDateFrom"] = (last_updated + timedelta(days=1)).strftime(
+                "%Y-%m-%d"
+            )
 
         with self.suppress_stdout() if self.config.suppress_print else nullcontext():
             comtradeapicall.bulkDownloadFinalFile(**params)
-            
-    
+
     def get_reporters_by_data_availability(self, year: int, latest_date: datetime):
         df = comtradeapicall.getFinalDataBulkAvailability(
             self.config.api_key,
@@ -312,4 +388,3 @@ class BulkDownloader(BaseDownloader):
             df_since_download = df[df["timestamp"].dt.date > latest_date.date()]
             reporter_codes = df_since_download["reporterCode"].unique()
             return reporter_codes
-

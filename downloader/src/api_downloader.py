@@ -16,15 +16,14 @@ import re
 import time
 from datetime import date, timedelta, datetime
 import logging
-from src.comtrade_file import ComtradeFile
+from src.comtrade_file import ComtradeFile, ComtradeFiles
 from src.configure_downloader import ComtradeConfig
 from src.downloader import BaseDownloader
 from pathlib import Path
 
 
 class ComtradeDownloader(object):
-    
-    TAIWAN = {'S19': 'TWN'}
+    TAIWAN = {"S19": "TWN"}
 
     def __init__(self, config: ComtradeConfig):
         self.config = config
@@ -34,52 +33,69 @@ class ComtradeDownloader(object):
         reporter_codes = []
         self.downloader = BaseDownloader.create_downloader(self.config)
         for year in self.config.years:
+            year_path = Path(self.config.raw_files_path / str(year))
+
             last_updated = self.get_last_download_date(year)
             if (
                 last_updated > self.downloader.earliest_date
-                and not self.config.force_full_download and not self.config.reporter_iso3_codes
+                and not self.config.force_full_download
+                and not self.config.reporter_iso3_codes
             ):
                 updated_reporters = self.downloader.get_reporters_by_data_availability(
                     year, last_updated
                 )
-                year_path = Path(self.config.latest_path / str(year))
+                # year_path = Path(self.config.latest_path / str(year))
                 self.config.logger.info(
                     f"Downloading reporter {self.config.classification_code} - {year} "
                     f"files updated since {last_updated}."
                 )
             else:
                 last_updated = self.downloader.earliest_date
-                year_path = Path(self.config.raw_files_path / str(year))
                 self.config.logger.info(
                     f"Downloading {self.config.classification_code} - {year} for {self.config.reporter_iso3_codes if self.config.reporter_iso3_codes else 'all reporters'}."
                 )
-                
+
             year_path.mkdir(parents=True, exist_ok=True)
             self.downloader.download_with_retries(year, year_path, last_updated)
+            
+            # folder to save parquet files
+            parquet_path = Path(self.config.raw_files_parquet_path / str(year))
+            parquet_path.mkdir(parents=True, exist_ok=True)
 
-            relocated_files = (
-                []
-                if last_updated == self.downloader.earliest_date or self.config.force_full_download
-                else self.replace_raw_files_with_updated_reports(year, year_path)
-            )
-            downloaded_files = self.generate_download_report(year_path, relocated_files)
+            # process files (validate and convert to parquet)
+            self.downloader.process_downloaded_files(year, convert=True)
+            
+            relocated_files = self.keep_most_recent_published_data(year, parquet_path)
+            
+            import pdb
+            pdb.set_trace()
+                    
+            # relocated_files = (
+            #     []
+            #     if last_updated == self.downloader.earliest_date
+            #     or self.config.force_full_download
+            #     else self.keep_most_recent_published_data(year, parquet_path)
+            # )
+            downloaded_files = self.generate_download_report(parquet_path, relocated_files)
             if not downloaded_files:
                 self.config.logger.info(f"No new files downloaded for {year}.")
                 continue
             self.config.logger.info(f"Generated download report for {year}.")
-            self.downloader.handle_corrupt_files(year)
-        
+            import pdb
+            pdb.set_trace()
+            # self.downloader.handle_corrupt_files(year)
+
     def run_compactor(self):
         self.downloader = BaseDownloader.create_downloader(self.config)
-        client = Client(n_workers=2, threads_per_worker=8)
-        self.config.logger.info(f"Dask client started: {client}")
+        # client = Client(n_workers=2, threads_per_worker=8)
+        # self.config.logger.info(f"Dask client started: {client}")
 
         for year in self.config.years:
             self.config.logger.info(f"Running compactor for {year}")
             df = self.aggregate_data_by_year(year)
             # integrated compactor
             df = self.downloader.atlas_data_filter(df)
-            df = self.downloader.clean_data(df)            
+            df = self.downloader.clean_data(df)
             self.save_combined_comtrade_year(df, year)
 
     def get_last_download_date(self, year):
@@ -102,73 +118,77 @@ class ComtradeDownloader(object):
         latest_date = max(file.published_date for file in comtrade_files)
         return latest_date
 
-
-    def replace_raw_files_with_updated_reports(self, year, year_path):
+    def keep_most_recent_published_data(self, year, path):
         """ """
-        updated_files = list(Path(year_path).glob("*.gz"))
-        if not updated_files:
-            return []
-
-        raw_year_path = Path(self.config.raw_files_path) / str(year)
-        archive_path = Path(self.config.archived_path) / str(year)
-        archive_path.mkdir(exist_ok=True)
-
-        relocated = []
-        raw_files = {
-            ComtradeFile(f).reporter_code: f for f in raw_year_path.glob("*.gz")
-        }
-
-        for updated_file in updated_files:
-            updated_reporter = ComtradeFile(updated_file).reporter_code
-            outdated_file = raw_files.get(ComtradeFile(updated_file).reporter_code)
-            if outdated_file and ComtradeFile(updated_file).published_date > ComtradeFile(outdated_file).published_date:
-                shutil.move(outdated_file, str(archive_path))
-            elif outdated_file:
-                self.config.logger.info(f"already previously downloaded, {updated_file.name} as {outdated_file.name}")
-                continue
-            shutil.move(str(updated_file), str(raw_year_path))
-            relocated.append(updated_file)
-        self.config.logger.info("Raw files updated with latest data")
-        self.remove_tmp_dir(os.path.join(self.config.latest_path, str(year)))
-        return relocated
-                
-                
-#             except shutil.Error as e:
-#                 self.config.logger.error(f"Failed to move updated {updated} to raw files: {e}")
-#             try:
-#                 if outdated is not None:
-                    
-#             except shutil.Error as e:
-#                 self.config.logger.error(f"Failed to move {outdated} to archived files: {e}")
-
+        # generate dictionary with reporter code key and datetimes as column values
+        files = glob.glob(os.path.join(path, "*.parquet"))
+        reporter_dates = {code: [] for code in {ComtradeFile(f).reporter_code for f in files}}
+        for f in files:
+            reporter_dates[ComtradeFile(f).reporter_code].append(ComtradeFile(f).published_date)
         
-#         return relocated
+        duplicated = {code: dates for code, dates in reporter_dates.items() if len(dates) >= 2}
+        if duplicated:
+            archive_path = Path(self.config.archived_path) / str(year)
+            archive_path.mkdir(exist_ok=True)
+        else:
+            return
+        
+        relocated = []
+        for reporter, dates in duplicated.items():
+            dates.remove(max(dates))
+            # get the file names
+            outdated_files = ComtradeFiles(files).get_file_names(reporter, dates)
+            
+            for outdated_file in outdated_files:
+                try:
+                    shutil.move(outdated_file, str(archive_path))
+                    relocated.append(outdated_file)
+                except shutil.Error as e:
+                    self.config.logger.error(f"Failed to move {outdated_file} to archived files: {e}")
+        return relocated
+
+            
+            
+        return relocated
+
+    #             except shutil.Error as e:
+    #                 self.config.logger.error(f"Failed to move updated {updated} to raw files: {e}")
+    #             try:
+    #                 if outdated is not None:
 
 
+    #         return relocated
 
     def aggregate_data_by_year(self, year):
-        """"""
-        year_path = Path(self.config.raw_files_path) / str(year)
-        dfs = [dd.read_csv(
-            f,
-            compression="gzip",
-            sep="\t",
-            usecols=list(self.downloader.columns.keys()),
-            dtype=self.downloader.columns,
-            blocksize=None, #gzip files can't be broken down further
-            # ignore_index=True
-        )
-        for f in glob.glob(os.path.join(year_path, "*.gz"))
+        """
+        """
+        #TODO: setup so only reading in and concating new files to existing file
+        year_path = Path(self.config.raw_files_parquet_path) / str(year)
+        dfs = [
+            dd.read_parquet(
+                f,
+                compression="snappy",
+                sep="\t",
+                usecols=list(self.downloader.columns.keys()),
+                dtype=self.downloader.columns,
+                blocksize=None,  # gzip files can't be broken down further
+                # ignore_index=True
+            )
+            for f in glob.glob(os.path.join(year_path, "*.parquet"))
         ]
-        
+
         ddf = dd.concat(dfs)
-        ddf.groupby(['reporterCode', 'partnerCode', 'flowCode', 'cmdCode']).agg('sum').reset_index()
-        ddf = ddf.drop(columns='qty')
+        ddf.groupby(["reporterCode", "partnerCode", "flowCode", "cmdCode"]).agg(
+            "sum"
+        ).reset_index()
+        ddf = ddf.drop(columns="qty")
         df = ddf.compute()
 
         # Merge reporter and partner reference tables for ISO3 codes
-        df = df.merge(self.downloader.reporters, on="reporterCode", how="left").merge(self.downloader.partners, on="partnerCode", how="left")
-        
+        df = df.merge(self.downloader.reporters, on="reporterCode", how="left").merge(
+            self.downloader.partners, on="partnerCode", how="left"
+        )
+
         if self.config.partner_iso3_codes:
             df = ddf[ddf.partnerISO3.isin(self.config.partner_iso3_codes)]
 
@@ -184,7 +204,6 @@ class ComtradeDownloader(object):
                 how="left",
             )
         return df
-    
 
     def save_combined_comtrade_year(self, df, year):
         """
@@ -193,12 +212,11 @@ class ComtradeDownloader(object):
         self.config.logger.info(f"Saving aggregated data file for {year}.")
         df.to_parquet(
             Path(
-                self.config.aggregated_by_year_parquet_path / 
-                f"comtrade_{self.config.classification_code}_{year}.parquet",
+                self.config.aggregated_by_year_parquet_path
+                / f"comtrade_{self.config.classification_code}_{year}.parquet",
             ),
             compression="snappy",
             index=False,
-            
         )
         del df
 
@@ -238,7 +256,6 @@ class ComtradeDownloader(object):
             pass
         df.to_csv(Path(self.config.download_report_path / file_name), index=False)
         return True
-
 
     def remove_tmp_dir(self, tmp_path):
         """ """

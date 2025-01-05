@@ -27,3 +27,26 @@ class ComtradeFile:
                 self.published_date = datetime.strptime(match.group("date"), "%Y-%m-%d")
                 return
         raise ValueError(f"File format has not been handled: {self.name}")
+        
+        
+class ComtradeFiles:
+    """Extract file(s) paths based on provided metadata"""
+
+    def __init__(self, files):
+        self.files = files
+
+    def get_file_names(self, reporter_code, dates) -> list:
+        files = set()
+        for f in self.files:
+            for date in dates:
+                date_str = date.strftime("%Y-%m-%d")
+                file = re.search(f".*COMTRADE-FINAL-CA{reporter_code}\\d{{4}}\\w+\\[{date_str}]", f)
+
+                # file = re.search(f".*COMTRADE-FINAL-CA{reporter_code}\\d{{4}}\\w+\\[\\d{{4}}-\\d{{2}}-\\d{{2}}\\]", f)
+                try:
+                    files.add(file.string)
+                except AttributeError as e:
+                    pass
+        return files
+                
+            
