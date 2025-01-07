@@ -13,24 +13,6 @@ import dask.dataframe as dd
 
 
 class BaseDownloader:
-    columns = {
-        # "period": "int16",
-        "reporterCode": "int16",
-        "flowCode": "category",
-        "partnerCode": "int16",
-        # "partner2Code": "int16",
-        # "classificationCode": "string",
-        "cmdCode": "string",
-        # "customsCode": "string",
-        # "mosCode": "int16",
-        # "motCode": "int16",
-        # "qtyUnitCode": "int8",
-        "qty": "float64",
-        # "isQtyEstimated": "int8",
-        "CIFValue": "float64",
-        "FOBValue": "float64",
-        "primaryValue": "float64",
-    }
 
     NES_COUNTRIES = [
         "_AC",
@@ -61,36 +43,36 @@ class BaseDownloader:
 
     def __init__(self, config):
         self.config = config
-        self._setup_reference_data()
+        self.reporters = self._setup_reference_data("reporter")
+        self.partners = self._setup_reference_data("partner")
 
-    def _setup_reference_data(self):
-        self.reporters = comtradeapicall.getReference("reporter")[
-            ["reporterCode", "reporterCodeIsoAlpha3"]
-        ].rename(columns={"reporterCodeIsoAlpha3": "reporterISO3"})
-        self.reporters = self.reporters[
-            ~self.reporters.reporterISO3.isin(self.EXCL_REPORTER_GROUPS.values())
+    def _setup_reference_data(self, reference):
+        # Comtrade API return Partner uppercase P and Reporter lowercase r
+        if reference == "partner":
+            api_field_name = "Partner"
+        else:
+            api_field_name = reference
+            
+        ref = comtradeapicall.getReference(reference)[
+            [f"{api_field_name}Code", f"{api_field_name}CodeIsoAlpha3"]
+        ].rename(columns={f"{api_field_name}CodeIsoAlpha3": f"{reference}ISO3",
+                         f"{api_field_name}Code": f"{reference}Code"})
+        
+        if reference == "reporter":
+            ref = ref[
+                ~ref[f"reporterISO3"].isin(self.EXCL_REPORTER_GROUPS.values())
+            ]
+        ref = ref[
+            ~ref[f"{reference}ISO3"].isin([self.NES_COUNTRIES])
         ]
-        self.reporters = self.reporters[
-            ~self.reporters.reporterISO3.isin([self.NES_COUNTRIES])
-        ]
-        self.reporters["reporterCode"] = self.reporters["reporterCode"].astype(
-            self.columns["reporterCode"]
+        ref[f"{reference}Code"] = ref[f"{reference}Code"].astype(
+            self.columns[f"{reference}Code"]
         )
+        ref[f"{reference}ISO3"] = ref[f"{reference}ISO3"].astype(
+            "string"
+        )
+        return ref
 
-        self.partners = comtradeapicall.getReference("partner")[
-            ["PartnerCode", "PartnerCodeIsoAlpha3"]
-        ].rename(
-            columns={
-                "PartnerCode": "partnerCode",
-                "PartnerCodeIsoAlpha3": "partnerISO3",
-            }
-        )
-        self.partners = self.partners[
-            ~self.partners.partnerISO3.isin([self.NES_COUNTRIES])
-        ]
-        self.partners["partnerCode"] = self.partners["partnerCode"].astype(
-            self.columns["partnerCode"]
-        )
 
     @contextmanager
     def suppress_stdout(self):
@@ -300,6 +282,26 @@ class ClassicDownloader(BaseDownloader):
     Comtrade APIs call for as reported data, provided in the classification
     code reported in
     """
+    columns = {
+        # "period": "int16",
+        "reporterCode": "int16",
+        "flowCode": "category",
+        "partnerCode": "int16",
+        # "partner2Code": "int16",
+        # "classificationCode": "string",
+        "cmdCode": "string",
+        # "customsCode": "string",
+        # "mosCode": "int16",
+        # "motCode": "int16",
+        # "qtyUnitCode": "int8",
+        "qty": "float64",
+        # "isQtyEstimated": "int8",
+        # Comtrade passes NAN values
+        "CIFValue": "float64",
+        "FOBValue": "float64",
+        "primaryValue": "float64",
+    }
+
 
     def __init__(self, config: ComtradeConfig):
         super().__init__(config)
@@ -344,13 +346,26 @@ class ClassicDownloader(BaseDownloader):
 class BulkDownloader(BaseDownloader):
     def __init__(self, config: ComtradeConfig):
         super().__init__(config)
-        # self.columns |={
-        #     "partner2Code": "int16",
-        #     # "cmdCode": "string",
-        #     "customsCode": "string",
-        #     "mosCode": "int16",
-        #     "motCode": "int16",
-        # }
+        
+        columns = {
+            # "period": "int16",
+            "reporterCode": "int16",
+            "flowCode": "category",
+            "partnerCode": "int16",
+            # "partner2Code": "int16",
+            # "classificationCode": "string",
+            "cmdCode": "string",
+            # "customsCode": "string",
+            # "mosCode": "int16",
+            # "motCode": "int16",
+            # "qtyUnitCode": "int8",
+            "qty": "float64",
+            # "isQtyEstimated": "int8",
+            # Comtrade passes NAN values
+            "CIFValue": "int64",
+            "FOBValue": "int64",
+            "primaryValue": "int64",
+        }
 
     def execute_download(self, year: int, last_updated, reporter_code):
         params = {

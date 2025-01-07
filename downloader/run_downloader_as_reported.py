@@ -18,6 +18,8 @@ import logging
 
 def main():
     """
+    Downloads Classic Data from Comtrade or data as reported by reporting countries
+    
     Comtrade provides data as reported referred to as Classic and data that has been
     coverted into each classification, referred to as Final
     
@@ -35,7 +37,7 @@ def main():
             api_key=os.environ.get('ELLIE_API_KEY'),
             output_dir="/n/hausmann_lab/lab/atlas/data/",
             download_type='classic', #options "classic", "final"
-            classification_code='HS',
+            classification_code=classification,
             log_level='INFO',
             start_year=classification_start_year, #1960,
             end_year=2023, #datetime.now().year,
@@ -54,16 +56,10 @@ def main():
             force_full_download=False,
         )
         print(f"initiating program {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
-        downloader_H0 = ComtradeDownloader(config_H0)
-        # downloader_H0.download_comtrade_yearly_bilateral_flows()
-        downloader_H0.run_compactor()
+        downloader_HS = ComtradeDownloader(config_HS)
+        # downloader_HS.download_comtrade_yearly_bilateral_flows()
+        downloader_HS.run_compactor()
         print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
-    
-    # print(f"initiating program {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
-    # downloader_HS = ComtradeDownloader(config_HS)
-    # downloader_HS.download_comtrade_yearly_bilateral_flows()
-    # print(f"program completed {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
-
 
 
 if __name__ == "__main__":

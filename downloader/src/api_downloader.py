@@ -7,7 +7,8 @@ by Classification Code by Year by Reporter
 """
 import pandas as pd
 import dask.dataframe as dd
-from dask.distributed import Client
+from dask.diagnostics import ProgressBar
+# from dask.distributed import Client
 import glob
 import os
 import shutil
@@ -82,6 +83,9 @@ class ComtradeDownloader(object):
         for year in self.config.years:
             self.config.logger.info(f"Running compactor for {year}")
             df = self.aggregate_data_by_year(year)
+            if df is None:
+                self.config.logger.info(f"No data for {year} to compact")
+                continue
             # integrated compactor
             df = self.downloader.atlas_data_filter(df)
             df = self.downloader.clean_data(df)
@@ -144,12 +148,19 @@ class ComtradeDownloader(object):
                     )
         return relocated
 
-        return relocated
 
     def aggregate_data_by_year(self, year):
         """ """
-        # TODO: setup so only reading in and concating new files to existing file
+        # TODO: improve performance      
         year_path = Path(self.config.raw_files_parquet_path) / str(year)
+        
+        # Get CPU count for parallel processing
+        n_cores = max(
+            int(os.environ.get('SLURM_CPUS_PER_TASK', 1)),
+            int(os.environ.get('SLURM_JOB_CPUS_PER_NODE', 1))
+        )
+        mem = int(os.environ.get('SLURM_MEM_PER_NODE')) / 1024
+
         dfs = [
             dd.read_parquet(
                 f,
@@ -157,18 +168,25 @@ class ComtradeDownloader(object):
                 sep="\t",
                 usecols=list(self.downloader.columns.keys()),
                 dtype=self.downloader.columns,
-                blocksize=None,  # gzip files can't be broken down further
-                # ignore_index=True
+                npartitions=n_cores,
+                blocksize= str(mem) + "GB",
             )
             for f in glob.glob(os.path.join(year_path, "*.parquet"))
         ]
-
-        ddf = dd.concat(dfs)
-        ddf.groupby(["reporterCode", "partnerCode", "flowCode", "cmdCode"]).agg(
+        try:
+            ddf = dd.concat(dfs)
+        except ValueError as e:
+            self.config.logger.info(e)
+            return 
+        
+        ddf.groupby(["reporterCode", "partnerCode", "flowCode", "cmdCode"], observed=False).agg(
             "sum"
         ).reset_index()
         ddf = ddf.drop(columns="qty")
-        df = ddf.compute()
+        
+        with ProgressBar():
+            df = ddf.compute(scheduler='processes', num_workers=n_cores)
+        # df = ddf.compute()
 
         # Merge reporter and partner reference tables for ISO3 codes
         df = df.merge(self.downloader.reporters, on="reporterCode", how="left").merge(
@@ -193,14 +211,16 @@ class ComtradeDownloader(object):
 
     def save_combined_comtrade_year(self, df, year):
         """
-        Saves output to parquet and stata. Compactor uses parquet file format
+        Saves output
         """
         self.config.logger.info(f"Saving aggregated data file for {year}.")
-        df.to_parquet(
-            Path(
+        save_dir = Path(
                 self.config.aggregated_by_year_parquet_path
-                / f"comtrade_{self.config.classification_code}_{year}.parquet",
-            ),
+                / self.config.classification_code
+        )
+        save_dir.mkdir(parents=True, exist_ok=True)
+        df.to_parquet(
+            Path(save_dir / f"{self.config.classification_code}_{year}.parquet"),
             compression="snappy",
             index=False,
         )
