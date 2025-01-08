@@ -13,7 +13,6 @@ import dask.dataframe as dd
 
 
 class BaseDownloader:
-
     NES_COUNTRIES = [
         "_AC",
         "_X ",
@@ -52,27 +51,24 @@ class BaseDownloader:
             api_field_name = "Partner"
         else:
             api_field_name = reference
-            
+
         ref = comtradeapicall.getReference(reference)[
             [f"{api_field_name}Code", f"{api_field_name}CodeIsoAlpha3"]
-        ].rename(columns={f"{api_field_name}CodeIsoAlpha3": f"{reference}ISO3",
-                         f"{api_field_name}Code": f"{reference}Code"})
-        
+        ].rename(
+            columns={
+                f"{api_field_name}CodeIsoAlpha3": f"{reference}ISO3",
+                f"{api_field_name}Code": f"{reference}Code",
+            }
+        )
+
         if reference == "reporter":
-            ref = ref[
-                ~ref[f"reporterISO3"].isin(self.EXCL_REPORTER_GROUPS.values())
-            ]
-        ref = ref[
-            ~ref[f"{reference}ISO3"].isin([self.NES_COUNTRIES])
-        ]
+            ref = ref[~ref[f"reporterISO3"].isin(self.EXCL_REPORTER_GROUPS.values())]
+        ref = ref[~ref[f"{reference}ISO3"].isin([self.NES_COUNTRIES])]
         ref[f"{reference}Code"] = ref[f"{reference}Code"].astype(
             self.columns[f"{reference}Code"]
         )
-        ref[f"{reference}ISO3"] = ref[f"{reference}ISO3"].astype(
-            "string"
-        )
+        ref[f"{reference}ISO3"] = ref[f"{reference}ISO3"].astype("string")
         return ref
-
 
     @contextmanager
     def suppress_stdout(self):
@@ -272,7 +268,6 @@ class BaseDownloader:
         # create product digitlevel column based on commodity code
         df = df.assign(digitLevel=df["cmdCode"].str.len())
         # zero digit value replaces the word TOTAL
-        # ddf = ddf.assign(digitLevel=ddf.digitLevel.mask(ddf.cmdCode == 'TOTAL', 0))
         df.loc[df.cmdCode == "TOTAL", "digitLevel"] = 0
         return df
 
@@ -282,6 +277,7 @@ class ClassicDownloader(BaseDownloader):
     Comtrade APIs call for as reported data, provided in the classification
     code reported in
     """
+
     columns = {
         # "period": "int16",
         "reporterCode": "int16",
@@ -301,7 +297,6 @@ class ClassicDownloader(BaseDownloader):
         "FOBValue": "float64",
         "primaryValue": "float64",
     }
-
 
     def __init__(self, config: ComtradeConfig):
         super().__init__(config)
@@ -346,7 +341,7 @@ class ClassicDownloader(BaseDownloader):
 class BulkDownloader(BaseDownloader):
     def __init__(self, config: ComtradeConfig):
         super().__init__(config)
-        
+
         columns = {
             # "period": "int16",
             "reporterCode": "int16",

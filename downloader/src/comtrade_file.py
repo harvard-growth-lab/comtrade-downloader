@@ -43,8 +43,6 @@ class ComtradeFiles:
                 file = re.search(
                     f".*COMTRADE-FINAL-CA{reporter_code}\\d{{4}}\\w+\\[{date_str}]", f
                 )
-
-                # file = re.search(f".*COMTRADE-FINAL-CA{reporter_code}\\d{{4}}\\w+\\[\\d{{4}}-\\d{{2}}-\\d{{2}}\\]", f)
                 try:
                     files.add(file.string)
                 except AttributeError as e:

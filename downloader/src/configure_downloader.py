@@ -126,7 +126,6 @@ class ComtradeConfig:
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         handler.setFormatter(formatter)
-        # Add handler to logger
         logger.addHandler(handler)
         self.logger = logger
 

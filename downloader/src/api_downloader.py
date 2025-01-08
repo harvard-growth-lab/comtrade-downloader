@@ -8,6 +8,7 @@ by Classification Code by Year by Reporter
 import pandas as pd
 import dask.dataframe as dd
 from dask.diagnostics import ProgressBar
+
 # from dask.distributed import Client
 import glob
 import os
@@ -148,18 +149,17 @@ class ComtradeDownloader(object):
                     )
         return relocated
 
-
     def aggregate_data_by_year(self, year):
         """ """
-        # TODO: improve performance      
+        # TODO: improve performance
         year_path = Path(self.config.raw_files_parquet_path) / str(year)
-        
+
         # Get CPU count for parallel processing
         n_cores = max(
-            int(os.environ.get('SLURM_CPUS_PER_TASK', 1)),
-            int(os.environ.get('SLURM_JOB_CPUS_PER_NODE', 1))
+            int(os.environ.get("SLURM_CPUS_PER_TASK", 1)),
+            int(os.environ.get("SLURM_JOB_CPUS_PER_NODE", 1)),
         )
-        mem = int(os.environ.get('SLURM_MEM_PER_NODE')) / 1024
+        mem = int(os.environ.get("SLURM_MEM_PER_NODE")) / 1024
 
         dfs = [
             dd.read_parquet(
@@ -169,7 +169,7 @@ class ComtradeDownloader(object):
                 usecols=list(self.downloader.columns.keys()),
                 dtype=self.downloader.columns,
                 npartitions=n_cores,
-                blocksize= str(mem) + "GB",
+                blocksize=str(mem) + "GB",
             )
             for f in glob.glob(os.path.join(year_path, "*.parquet"))
         ]
@@ -177,15 +177,15 @@ class ComtradeDownloader(object):
             ddf = dd.concat(dfs)
         except ValueError as e:
             self.config.logger.info(e)
-            return 
-        
-        ddf.groupby(["reporterCode", "partnerCode", "flowCode", "cmdCode"], observed=False).agg(
-            "sum"
-        ).reset_index()
+            return
+
+        ddf.groupby(
+            ["reporterCode", "partnerCode", "flowCode", "cmdCode"], observed=False
+        ).agg("sum").reset_index()
         ddf = ddf.drop(columns="qty")
-        
+
         with ProgressBar():
-            df = ddf.compute(scheduler='processes', num_workers=n_cores)
+            df = ddf.compute(scheduler="processes", num_workers=n_cores)
         # df = ddf.compute()
 
         # Merge reporter and partner reference tables for ISO3 codes
@@ -215,8 +215,8 @@ class ComtradeDownloader(object):
         """
         self.config.logger.info(f"Saving aggregated data file for {year}.")
         save_dir = Path(
-                self.config.aggregated_by_year_parquet_path
-                / self.config.classification_code
+            self.config.aggregated_by_year_parquet_path
+            / self.config.classification_code
         )
         save_dir.mkdir(parents=True, exist_ok=True)
         df.to_parquet(

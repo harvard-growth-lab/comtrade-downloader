@@ -19,29 +19,29 @@ import logging
 def main():
     """
     Downloads Classic Data from Comtrade or data as reported by reporting countries
-    
+
     Comtrade provides data as reported referred to as Classic and data that has been
     coverted into each classification, referred to as Final
-    
+
     Use Comtrade Config class to request data from Comtrade
-    
+
     Downloader output aggregates data across all reporters for one year
     """
-    
+
     downloaders = {"HS": 1962}
     # get all as reported
-    
+
     for classification, classification_start_year in downloaders.items():
         # download as reported data
         config_HS = ComtradeConfig(
-            api_key=os.environ.get('ELLIE_API_KEY'),
+            api_key=os.environ.get("ELLIE_API_KEY"),
             output_dir="/n/hausmann_lab/lab/atlas/data/",
-            download_type='classic', #options "classic", "final"
+            download_type="classic",  # options "classic", "final"
             classification_code=classification,
-            log_level='INFO',
-            start_year=classification_start_year, #1960,
-            end_year=2023, #datetime.now().year,
-            reporter_iso3_codes=[], #list of iso3codes
+            log_level="INFO",
+            start_year=classification_start_year,  # 1960,
+            end_year=2023,  # datetime.now().year,
+            reporter_iso3_codes=[],  # list of iso3codes
             partner_iso3_codes=[],
             commodity_codes=[],
             flow_codes=[],  # exports (X), imports (M), Cost of Insurance-Freight (CA)
