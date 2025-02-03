@@ -40,7 +40,6 @@ class ComtradeDownloader(object):
             last_updated = self.get_last_download_date(year)
             if (
                 last_updated > self.downloader.earliest_date
-                and not self.config.force_full_download
                 and not self.config.reporter_iso3_codes
             ):
                 updated_reporters = self.downloader.get_reporters_by_data_availability(
@@ -64,7 +63,7 @@ class ComtradeDownloader(object):
             parquet_path.mkdir(parents=True, exist_ok=True)
 
             # process files (validate and convert to parquet)
-            self.downloader.process_downloaded_files(year, convert=True)
+            self.downloader.process_downloaded_files(year, convert=True, save_all_parquet_files=True)
 
             relocated_files = self.keep_most_recent_published_data(year, parquet_path)
 
@@ -115,7 +114,8 @@ class ComtradeDownloader(object):
     def keep_most_recent_published_data(self, year, path):
         """ """
         # generate dictionary with reporter code key and datetimes as column values
-        files = glob.glob(os.path.join(path, "*.parquet"))
+        path_dir = os.path.dirname(path)
+        files = [f for f in os.listdir(path_dir) if f.endswith('.parquet')]
         reporter_dates = {
             code: [] for code in {ComtradeFile(f).reporter_code for f in files}
         }
@@ -138,9 +138,10 @@ class ComtradeDownloader(object):
             dates.remove(max(dates))
             # get the file names
             outdated_files = ComtradeFiles(files).get_file_names(reporter, dates)
-
             for outdated_file in outdated_files:
                 try:
+                    if os.path.isfile(archive_path / outdated_file):
+                        os.remove(archive_path / outdated_file)
                     shutil.move(outdated_file, str(archive_path))
                     relocated.append(outdated_file)
                 except shutil.Error as e:
@@ -186,7 +187,6 @@ class ComtradeDownloader(object):
 
         with ProgressBar():
             df = ddf.compute(scheduler="processes", num_workers=n_cores)
-        # df = ddf.compute()
 
         # Merge reporter and partner reference tables for ISO3 codes
         df = df.merge(self.downloader.reporters, on="reporterCode", how="left").merge(

@@ -28,7 +28,8 @@ def main():
     Downloader output aggregates data across all reporters for one year
     """
 
-    downloaders = {"H4": 2012, "H0": 1995}
+    # downloaders = {"H4": 2024}#, "H0": 2022}
+    downloaders = {"H0": 2021, "H4": 2012}
 
     for classification, classification_start_year in downloaders.items():
         config_classification = ComtradeConfig(
@@ -51,29 +52,28 @@ def main():
             delete_tmp_files=False,
             compress_output=True,
             suppress_print=False,
-            force_full_download=False,
         )
         print(
             f"initiating {classification} download {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
         )
         downloader = ComtradeDownloader(config_classification)
-        # downloader.download_comtrade_yearly_bilateral_flows()
+        downloader.download_comtrade_yearly_bilateral_flows()
         print(f"requires memory allocation of at least 80GB")
         downloader.run_compactor()
         print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 
-    downloaders = {"S1": 1962, "S2": 1976}
+    downloaders = {"S1": [1962, 1975], "S2": [1976, datetime.now().year - 1]}
     # SITC is run through concordance table conversion in atlas cleaning
 
-    for classification, classification_start_year in downloaders.items():
+    for classification, classification_years in downloaders.items():
         config_SITC = ComtradeConfig(
             api_key=os.environ.get("ELLIE_API_KEY"),
             output_dir="/n/hausmann_lab/lab/atlas/data/",
             download_type="final",  # options "classic", "final"
             classification_code=classification,
             log_level="INFO",
-            start_year=classification_start_year,  # 1960,
-            end_year=1994,  # datetime.now().year,
+            start_year=min(classification_years),  # 1960,
+            end_year=max(classification_years),  # datetime.now().year,
             reporter_iso3_codes=[],  # list of iso3codes
             partner_iso3_codes=[],
             commodity_codes=[],
@@ -86,14 +86,13 @@ def main():
             delete_tmp_files=False,
             compress_output=True,
             suppress_print=False,
-            force_full_download=False,
         )
 
         print(
             f"initiating {classification} download {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
         )
         downloader_SITC = ComtradeDownloader(config_SITC)
-        # downloader_SITC.download_comtrade_yearly_bilateral_flows()
+        downloader_SITC.download_comtrade_yearly_bilateral_flows()
         print(f"requires memory allocation of at least 80GB")
         downloader_SITC.run_compactor()
         print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")

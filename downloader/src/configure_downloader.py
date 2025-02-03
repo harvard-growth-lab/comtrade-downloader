@@ -30,7 +30,6 @@ class ComtradeConfig:
         delete_tmp_files: bool,
         compress_output: bool,
         suppress_print: bool,
-        force_full_download: bool,
     ):
         # Required fields
         self.api_key = api_key
@@ -56,7 +55,6 @@ class ComtradeConfig:
         self.delete_tmp_files = delete_tmp_files or False
         self.compress_output = compress_output or True
         self.suppress_print = suppress_print or True
-        self.force_full_download = force_full_download or False
 
         self._validate()
         self._setup_logger(log_level)

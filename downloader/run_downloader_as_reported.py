@@ -53,7 +53,6 @@ def main():
             delete_tmp_files=False,
             compress_output=True,
             suppress_print=False,
-            force_full_download=False,
         )
         print(f"initiating program {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
         downloader_HS = ComtradeDownloader(config_HS)
