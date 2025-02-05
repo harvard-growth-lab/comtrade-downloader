@@ -37,18 +37,18 @@ class BaseDownloader:
         "ASEAN": "R4 ",  # trailing space
         "European Union": "EUR",
     }
-    
+
     columns = {
         # "period": "int16",
-        "reporterCode": "int16",
+        "reporterCode": "category",
         "flowCode": "category",
-        "partnerCode": "int16",
-        # "partner2Code": "int16",
+        "partnerCode": "category",
+        "partner2Code": "int16",
         # "classificationCode": "string",
         "cmdCode": "string",
-        # "customsCode": "string",
-        # "mosCode": "int16",
-        # "motCode": "int16",
+        "customsCode": "category",
+        "mosCode": "category",
+        "motCode": "category",
         # "qtyUnitCode": "int8",
         "qty": "float64",
         # "isQtyEstimated": "int8",
@@ -56,7 +56,7 @@ class BaseDownloader:
         "CIFValue": "float64",
         "FOBValue": "float64",
         "primaryValue": "float64",
-        "isAggregate": "int8",
+        "isAggregate": "category",
     }
 
     earliest_date = datetime(1962, 1, 1)
@@ -110,13 +110,11 @@ class BaseDownloader:
         pass
 
     def atlas_data_filter(self, df: pd.DataFrame):
-        try:
-            df = df[df.isAggregate==0]
-            df = df.drop(columns="isAggregate")
-        except:
-            pass
-        df = df[df.flowCode.isin(["M", "X", "RM", "RX"])]
+        # starting in 2017 Comtrade began including both aggregated and not aggregated data
+        # prior to this, they only provided aggregated data
+
         return self._handle_digit_level(df)
+
 
     def download_with_retries(
         self, year: int, year_path: Path, last_updated: datetime, num_attempts=2
@@ -165,7 +163,9 @@ class BaseDownloader:
         df.loc[df.partnerISO3 == "ZA1", "partnerISO3"] = "ZAF"
         return df.drop(columns=["reporterCode", "partnerCode"])
 
-    def process_downloaded_files(self, year, convert=False, save_all_parquet_files=False):
+    def process_downloaded_files(
+        self, year, convert=False, save_all_parquet_files=False
+    ):
         """
         Validate Data files and Convert files to Parquet
         """
@@ -201,9 +201,7 @@ class BaseDownloader:
         if corrupted_files:
             self.handle_corrupt_files(year, corrupted_files)
         for f in glob.glob(os.path.join(year_path, "*.gz")):
-                
             if convert:
-                
                 file_name = f.split("/")[-1].split(".")[0]
                 if file_name not in parquet_files or save_all_parquet_files:
                     df = pd.read_csv(
@@ -213,7 +211,7 @@ class BaseDownloader:
                         usecols=list(self.columns.keys()),
                         dtype=self.columns,
                     )
-                    
+
                     df.to_parquet(
                         Path(
                             self.config.raw_files_parquet_path
@@ -251,15 +249,13 @@ class BaseDownloader:
                 corrupted_files.add(f)
         return corrupted_files
 
-    def handle_corrupt_files(self, year, corrupted_files):        
+    def handle_corrupt_files(self, year, corrupted_files):
         remove_from_corrupted = set()
         for corrupted_file in corrupted_files:
             self.config.logger.info(f"Found corrupted files")
             year = ComtradeFile(corrupted_file).year
             reporter_code = ComtradeFile(corrupted_file).reporter_code
-            self.config.logger.info(
-                f"... requesting from api {year}-{reporter_code}."
-            )
+            self.config.logger.info(f"... requesting from api {year}-{reporter_code}.")
             attempts = 1
             while attempts < 3:
                 try:
@@ -276,17 +272,19 @@ class BaseDownloader:
                     remove_from_corrupted.add(corrupted_file)
                     break
                 except:
-                    attempts+=1
+                    attempts += 1
                     self.config.logger.info(
                         f"{corrupted_file} on attempt {attempts} after initial failure  is still corrupted"
                     )
-                    
+
         for file in remove_from_corrupted:
             self.config.logger.info(f"remove {remove_from_corrupted}")
             corrupted_files.remove(file)
-        
+
         for f in corrupted_files:
-            self.config.logger.info(f"download failed, removing from raw downloaded folder {f}")
+            self.config.logger.info(
+                f"download failed, removing from raw downloaded folder {f}"
+            )
             if os.path.isfile(Path(self.config.corrupted_path / ComtradeFile(f).name)):
                 os.remove(Path(self.config.corrupted_path / ComtradeFile(f).name))
             shutil.move(f, Path(self.config.corrupted_path / ComtradeFile(f).name))
@@ -295,7 +293,7 @@ class BaseDownloader:
         # create product digitlevel column based on commodity code
         df = df.assign(digitLevel=df["cmdCode"].str.len())
         # zero digit value replaces the word TOTAL
-        df.loc[df.partnerCode == "TOTAL", "digitLevel"] = 0
+        df.loc[df.cmdCode == "TOTAL", "digitLevel"] = 0
         return df
 
 

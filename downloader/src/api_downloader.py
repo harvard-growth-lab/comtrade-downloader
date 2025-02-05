@@ -35,35 +35,39 @@ class ComtradeDownloader(object):
         reporter_codes = []
         self.downloader = BaseDownloader.create_downloader(self.config)
         for year in self.config.years:
-            year_path = Path(self.config.raw_files_path / str(year))
+            #             year_path = Path(self.config.raw_files_path / str(year))
 
-            last_updated = self.get_last_download_date(year)
-            if (
-                last_updated > self.downloader.earliest_date
-                and not self.config.reporter_iso3_codes
-            ):
-                updated_reporters = self.downloader.get_reporters_by_data_availability(
-                    year, last_updated
-                )
-                self.config.logger.info(
-                    f"Downloading reporter {self.config.classification_code} - {year} "
-                    f"files updated since {last_updated}."
-                )
-            else:
-                last_updated = self.downloader.earliest_date
-                self.config.logger.info(
-                    f"Downloading {self.config.classification_code} - {year} for {self.config.reporter_iso3_codes if self.config.reporter_iso3_codes else 'all reporters'}."
-                )
+            #             last_updated = self.get_last_download_date(year)
+            #             if (
+            #                 last_updated > self.downloader.earliest_date
+            #                 and not self.config.reporter_iso3_codes
+            #             ):
+            #                 updated_reporters = self.downloader.get_reporters_by_data_availability(
+            #                     year, last_updated
+            #                 )
+            #                 self.config.logger.info(
+            #                     f"Downloading reporter {self.config.classification_code} - {year} "
+            #                     f"files updated since {last_updated}."
+            #                 )
+            #             else:
+            #                 last_updated = self.downloader.earliest_date
+            #                 self.config.logger.info(
+            #                     f"Downloading {self.config.classification_code} - {year} for {self.config.reporter_iso3_codes if self.config.reporter_iso3_codes else 'all reporters'}."
+            #                 )
 
-            year_path.mkdir(parents=True, exist_ok=True)
-            self.downloader.download_with_retries(year, year_path, last_updated)
+            #             year_path.mkdir(parents=True, exist_ok=True)
+            #             self.downloader.download_with_retries(year, year_path, last_updated)
 
             # folder to save parquet files
             parquet_path = Path(self.config.raw_files_parquet_path / str(year))
             parquet_path.mkdir(parents=True, exist_ok=True)
 
             # process files (validate and convert to parquet)
-            self.downloader.process_downloaded_files(year, convert=True, save_all_parquet_files=True)
+            self.downloader.process_downloaded_files(
+                year, convert=True, save_all_parquet_files=True
+            )
+            # typically use this
+            # self.downloader.process_downloaded_files(year, convert=True)
 
             relocated_files = self.keep_most_recent_published_data(year, parquet_path)
 
@@ -86,6 +90,10 @@ class ComtradeDownloader(object):
             if df is None:
                 self.config.logger.info(f"No data for {year} to compact")
                 continue
+
+            # if df.product_level.unique != 1 self.HIERARCHY_LEVELS[self.product_classification]:
+            #     raise ValueError (f"
+            df = self.merge_iso_codes(df)
             # integrated compactor
             df = self.downloader.atlas_data_filter(df)
             df = self.downloader.clean_data(df)
@@ -115,7 +123,7 @@ class ComtradeDownloader(object):
         """ """
         # generate dictionary with reporter code key and datetimes as column values
         path_dir = os.path.dirname(path)
-        files = [f for f in os.listdir(path_dir) if f.endswith('.parquet')]
+        files = [f for f in os.listdir(path_dir) if f.endswith(".parquet")]
         reporter_dates = {
             code: [] for code in {ComtradeFile(f).reporter_code for f in files}
         }
@@ -161,9 +169,11 @@ class ComtradeDownloader(object):
             int(os.environ.get("SLURM_JOB_CPUS_PER_NODE", 1)),
         )
         mem = int(os.environ.get("SLURM_MEM_PER_NODE")) / 1024
-
-        dfs = [
-            dd.read_parquet(
+        
+        dfs=[]
+        
+        for f in glob.glob(os.path.join(year_path, "*.parquet")):
+            ddf = dd.read_parquet(
                 f,
                 compression="snappy",
                 sep="\t",
@@ -172,8 +182,13 @@ class ComtradeDownloader(object):
                 npartitions=n_cores,
                 blocksize=str(mem) + "GB",
             )
-            for f in glob.glob(os.path.join(year_path, "*.parquet"))
-        ]
+            
+            # Comtrade API returns aggregated data, need to filter to only include rolled up totals
+            ddf = ddf[(ddf.motCode=="0") & (ddf.mosCode=="0") & (ddf.customsCode=="C00") & (ddf.flowCode.isin(["M", "X", "RM", "RX"])) & (ddf.partner2Code==0)]
+            
+            ddf = ddf.drop(columns=["isAggregate", "customsCode", "motCode", "mosCode", "partner2Code"])
+            dfs.append(ddf)
+            
         try:
             ddf = dd.concat(dfs)
         except ValueError as e:
@@ -183,12 +198,15 @@ class ComtradeDownloader(object):
         ddf.groupby(
             ["reporterCode", "partnerCode", "flowCode", "cmdCode"], observed=False
         ).agg("sum").reset_index()
-        ddf = ddf.drop(columns="qty")
 
         with ProgressBar():
             df = ddf.compute(scheduler="processes", num_workers=n_cores)
+        return df
 
-        # Merge reporter and partner reference tables for ISO3 codes
+    def merge_iso_codes(self, df):
+        """ """
+        df['reporterCode'] = df.reporterCode.astype('int16')
+        df['partnerCode'] = df.partnerCode.astype('int16')
         df = df.merge(self.downloader.reporters, on="reporterCode", how="left").merge(
             self.downloader.partners, on="partnerCode", how="left"
         )
@@ -196,17 +214,6 @@ class ComtradeDownloader(object):
         if self.config.partner_iso3_codes:
             df = ddf[ddf.partnerISO3.isin(self.config.partner_iso3_codes)]
 
-        if not self.config.drop_secondary_partners:
-            df = df.merge(
-                self.downloader.partners.rename(
-                    columns={
-                        "partnerCode": "partner2Code",
-                        "partnerISO3": "partner2ISO3",
-                    }
-                ),
-                on="partner2Code",
-                how="left",
-            )
         return df
 
     def save_combined_comtrade_year(self, df, year):

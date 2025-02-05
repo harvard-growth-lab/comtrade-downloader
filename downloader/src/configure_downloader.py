@@ -14,7 +14,7 @@ class ComtradeConfig:
         api_key: str,
         output_dir: str,
         download_type: str,
-        classification_code: str,
+        product_classification: str,
         start_year: int,
         end_year: int,
         log_level: str,
@@ -35,7 +35,7 @@ class ComtradeConfig:
         self.api_key = api_key
         self.download_type = download_type
         self.output_dir = Path(output_dir) / self.REQUESTED_DATA[self.download_type]
-        self.classification_code = classification_code
+        self.classification_code = product_classification
         self.start_year = start_year
         self.end_year = end_year
         self.years = range(start_year, end_year + 1)

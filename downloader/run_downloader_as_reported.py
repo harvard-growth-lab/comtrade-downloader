@@ -37,7 +37,7 @@ def main():
             api_key=os.environ.get("ELLIE_API_KEY"),
             output_dir="/n/hausmann_lab/lab/atlas/data/",
             download_type="classic",  # options "classic", "final"
-            classification_code=classification,
+            product_classification=classification,
             log_level="INFO",
             start_year=classification_start_year,  # 1960,
             end_year=2023,  # datetime.now().year,

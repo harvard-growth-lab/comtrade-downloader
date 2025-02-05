@@ -28,15 +28,15 @@ def main():
     Downloader output aggregates data across all reporters for one year
     """
 
-    # downloaders = {"H4": 2024}#, "H0": 2022}
-    downloaders = {"H0": 2021, "H4": 2012}
+    downloaders = {"H0": 2023}#, "H0": 2022}
+    # downloaders = {"H0": 1995, "H4": 2012}
 
     for classification, classification_start_year in downloaders.items():
-        config_classification = ComtradeConfig(
+        config_HS = ComtradeConfig(
             api_key=os.environ.get("ELLIE_API_KEY"),
             output_dir="/n/hausmann_lab/lab/atlas/data/",
             download_type="final",  # options "classic", "final"
-            classification_code=classification,
+            product_classification=classification,
             log_level="INFO",
             start_year=classification_start_year,  # 1960,
             end_year=datetime.now().year,
@@ -56,7 +56,7 @@ def main():
         print(
             f"initiating {classification} download {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
         )
-        downloader = ComtradeDownloader(config_classification)
+        downloader = ComtradeDownloader(config_HS)
         downloader.download_comtrade_yearly_bilateral_flows()
         print(f"requires memory allocation of at least 80GB")
         downloader.run_compactor()
@@ -70,7 +70,7 @@ def main():
             api_key=os.environ.get("ELLIE_API_KEY"),
             output_dir="/n/hausmann_lab/lab/atlas/data/",
             download_type="final",  # options "classic", "final"
-            classification_code=classification,
+            product_classification=classification,
             log_level="INFO",
             start_year=min(classification_years),  # 1960,
             end_year=max(classification_years),  # datetime.now().year,
@@ -91,11 +91,11 @@ def main():
         print(
             f"initiating {classification} download {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
         )
-        downloader_SITC = ComtradeDownloader(config_SITC)
-        downloader_SITC.download_comtrade_yearly_bilateral_flows()
-        print(f"requires memory allocation of at least 80GB")
-        downloader_SITC.run_compactor()
-        print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
+        # downloader_SITC = ComtradeDownloader(config_SITC)
+        # downloader_SITC.download_comtrade_yearly_bilateral_flows()
+        # print(f"requires memory allocation of at least 80GB")
+        # downloader_SITC.run_compactor()
+        # print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 
 
 if __name__ == "__main__":
