@@ -1,5 +1,5 @@
 from pathlib import Path
-import regex as re
+import re
 from datetime import datetime
 
 

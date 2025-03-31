@@ -28,8 +28,8 @@ def main():
     Downloader output aggregates data across all reporters for one year
     """
 
-    downloaders = {"H0": 2023}#, "H0": 2022}
-    # downloaders = {"H0": 1995, "H4": 2012}
+    downloaders = {"H0": 1995, "H4": 2012}
+    # downloaders = {"H0": 2022} #, "H4": 2012}
 
     for classification, classification_start_year in downloaders.items():
         config_HS = ComtradeConfig(
@@ -57,12 +57,12 @@ def main():
             f"initiating {classification} download {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
         )
         downloader = ComtradeDownloader(config_HS)
-        downloader.download_comtrade_yearly_bilateral_flows()
-        print(f"requires memory allocation of at least 80GB")
+        # downloader.download_comtrade_yearly_bilateral_flows()
+        print(f"requires memory allocation of at least 20GB")
         downloader.run_compactor()
         print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 
-    downloaders = {"S1": [1962, 1975], "S2": [1976, datetime.now().year - 1]}
+    downloaders = {"S1": [1962, 1975], "S2": [1976, datetime.now().year - 2]}
     # SITC is run through concordance table conversion in atlas cleaning
 
     for classification, classification_years in downloaders.items():
@@ -91,11 +91,11 @@ def main():
         print(
             f"initiating {classification} download {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
         )
-        # downloader_SITC = ComtradeDownloader(config_SITC)
+        downloader_SITC = ComtradeDownloader(config_SITC)
         # downloader_SITC.download_comtrade_yearly_bilateral_flows()
-        # print(f"requires memory allocation of at least 80GB")
-        # downloader_SITC.run_compactor()
-        # print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
+        print(f"requires memory allocation of at least 80GB")
+        downloader_SITC.run_compactor()
+        print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 
 
 if __name__ == "__main__":

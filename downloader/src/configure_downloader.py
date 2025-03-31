@@ -30,6 +30,7 @@ class ComtradeConfig:
         delete_tmp_files: bool,
         compress_output: bool,
         suppress_print: bool,
+        converted_files: bool,
     ):
         # Required fields
         self.api_key = api_key
@@ -55,6 +56,7 @@ class ComtradeConfig:
         self.delete_tmp_files = delete_tmp_files or False
         self.compress_output = compress_output or True
         self.suppress_print = suppress_print or True
+        self.converted_files = converted_files or False
 
         self._validate()
         self._setup_logger(log_level)
@@ -75,6 +77,8 @@ class ComtradeConfig:
 
     @property
     def raw_files_parquet_path(self) -> Path:
+        if self.converted_files:
+            return self.output_dir / "converted" / self.classification_code
         return self.output_dir / "raw_parquet" / self.classification_code
 
     @property
@@ -91,6 +95,8 @@ class ComtradeConfig:
 
     @property
     def aggregated_by_year_parquet_path(self) -> Path:
+        if self.converted_files:
+            return self.output_dir / "converted_aggregated_by_year" / "parquet"
         return self.output_dir / "aggregated_by_year" / "parquet"
 
     @property

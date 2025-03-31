@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-import regex as re
+import re
 from datetime import datetime, timedelta
 from src.configure_downloader import ComtradeConfig
 from src.comtrade_file import ComtradeFile
@@ -36,27 +36,6 @@ class BaseDownloader:
     EXCL_REPORTER_GROUPS = {
         "ASEAN": "R4 ",  # trailing space
         "European Union": "EUR",
-    }
-
-    columns = {
-        # "period": "int16",
-        "reporterCode": "category",
-        "flowCode": "category",
-        "partnerCode": "category",
-        "partner2Code": "int16",
-        # "classificationCode": "string",
-        "cmdCode": "string",
-        "customsCode": "category",
-        "mosCode": "category",
-        "motCode": "category",
-        # "qtyUnitCode": "int8",
-        "qty": "float64",
-        # "isQtyEstimated": "int8",
-        # Comtrade passes NAN values
-        "CIFValue": "float64",
-        "FOBValue": "float64",
-        "primaryValue": "float64",
-        "isAggregate": "category",
     }
 
     earliest_date = datetime(1962, 1, 1)
@@ -302,6 +281,27 @@ class ClassicDownloader(BaseDownloader):
     Comtrade APIs call for as reported data, provided in the classification
     code reported in
     """
+    
+    columns = {
+        # "period": "int16",
+        "reporterCode": "category",
+        "flowCode": "category",
+        "partnerCode": "category",
+        # "partner2Code": "int16",
+        # "classificationCode": "string",
+        "cmdCode": "string",
+        # "customsCode": "category",
+        # "mosCode": "category",
+        # "motCode": "category",
+        # "qtyUnitCode": "int8",
+        "qty": "float64",
+        # "isQtyEstimated": "int8",
+        # Comtrade passes NAN values
+        "CIFValue": "float64",
+        "FOBValue": "float64",
+        "primaryValue": "float64",
+        "isAggregate": "category",
+    }
 
     def __init__(self, config: ComtradeConfig):
         super().__init__(config)
@@ -344,6 +344,28 @@ class ClassicDownloader(BaseDownloader):
 
 
 class BulkDownloader(BaseDownloader):
+    
+    columns = {
+        # "period": "int16",
+        "reporterCode": "category",
+        "flowCode": "category",
+        "partnerCode": "category",
+        "partner2Code": "int16",
+        # "classificationCode": "string",
+        "cmdCode": "string",
+        "customsCode": "category",
+        "mosCode": "category",
+        "motCode": "category",
+        # "qtyUnitCode": "int8",
+        "qty": "float64",
+        # "isQtyEstimated": "int8",
+        # Comtrade passes NAN values
+        "CIFValue": "float64",
+        "FOBValue": "float64",
+        "primaryValue": "float64",
+        "isAggregate": "category",
+    }
+
     def __init__(self, config: ComtradeConfig):
         super().__init__(config)
 
