@@ -52,6 +52,7 @@ def main():
             delete_tmp_files=False,
             compress_output=True,
             suppress_print=False,
+            converted_files=False,
         )
         print(
             f"initiating {classification} download {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
@@ -86,6 +87,7 @@ def main():
             delete_tmp_files=False,
             compress_output=True,
             suppress_print=False,
+            converted_files=False,
         )
 
         print(
