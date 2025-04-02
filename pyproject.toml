@@ -17,6 +17,7 @@ regex = "^2024.11.6"
 dask = {extras = ["distributed"], version = "^2024.12.0"}
 distributed = "^2024.12.0"
 dask-expr = "^1.1.20"
+ipython = "^8.0.0"
 
 
 [build-system]

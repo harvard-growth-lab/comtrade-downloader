@@ -94,7 +94,6 @@ class BaseDownloader:
 
         return self._handle_digit_level(df)
 
-
     def download_with_retries(
         self, year: int, year_path: Path, last_updated: datetime, num_attempts=2
     ):
@@ -281,7 +280,7 @@ class ClassicDownloader(BaseDownloader):
     Comtrade APIs call for as reported data, provided in the classification
     code reported in
     """
-    
+
     columns = {
         # "period": "int16",
         "reporterCode": "category",
@@ -344,7 +343,6 @@ class ClassicDownloader(BaseDownloader):
 
 
 class BulkDownloader(BaseDownloader):
-    
     columns = {
         # "period": "int16",
         "reporterCode": "category",

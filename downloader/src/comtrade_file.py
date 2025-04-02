@@ -27,6 +27,36 @@ class ComtradeFile:
                 self.published_date = datetime.strptime(match.group("date"), "%Y-%m-%d")
                 return
         raise ValueError(f"File format has not been handled: {self.name}")
+    
+    
+    def swap_classification(self, new_classification):
+        """
+        Swap the classification in the filename and update the object's properties.
+
+        Parameters:
+        -----------
+        new_classification : str
+            The new classification code to use (e.g., 'H0', 'H1', 'S3', etc.)
+
+        Returns:
+        --------
+        ComtradeFile
+            Returns self for method chaining
+        """
+        old_filename = self.name
+
+        self.classification = new_classification
+
+        if "FINALCLASSIC" in old_filename:
+            pattern = r"(COMTRADE-FINALCLASSIC-CA\d{3}\d{4})(\w+)(\[[\d-]+\]\.parquet)"
+        else:
+            pattern = r"(COMTRADE-FINAL-CA\d{3}\d{4})(\w+)(\[[\d-]+\]\.parquet)"
+
+        # Replace the classification part with the new classification
+        self.name = re.sub(pattern, rf"\1{new_classification}\3", old_filename)
+
+        # Update the file_path to match the new name
+        self.file_path = self.file_path.parent / self.name
 
 
 class ComtradeFiles:

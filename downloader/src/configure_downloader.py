@@ -1,5 +1,5 @@
 from pathlib import Path
-import regex as re
+import re
 from datetime import datetime
 import logging
 import os
@@ -80,6 +80,16 @@ class ComtradeConfig:
         if self.converted_files:
             return self.output_dir / "converted" / self.classification_code
         return self.output_dir / "raw_parquet" / self.classification_code
+    
+    @property
+    def intermediate_class_path(self) -> Path:
+        return self.output_dir / "intermediate_files" / self.classification_code
+    
+    @property
+    def converted_final_path(self) -> Path:
+        return self.output_dir / "converted" / self.classification_code
+
+
 
     @property
     def archived_path(self) -> Path:
@@ -106,6 +116,20 @@ class ComtradeConfig:
             / "atlas_download_reports"
             # / f"download_report_{datetime.now().strftime('%Y-%m-%d')}.csv"
         )
+    
+    @property
+    def conversion_weights_path(self) -> Path:
+        return Path("/n/hausmann_lab/lab/atlas/bustos_yildirim/paper/product_conversion") / "weights"
+
+    @property
+    def conversion_group_path(self) -> Path:
+        return Path("/n/hausmann_lab/lab/atlas/bustos_yildirim/paper/product_conversion") / "DataAtlas"
+    
+    @property
+    def concordance_tables_path(self) -> Path:
+        return Path("/n/hausmann_lab/lab/atlas/bustos_yildirim/paper/product_conversion") / "data_groups"
+
+
 
     def _validate(self):
         if not self.api_key:
@@ -138,11 +162,16 @@ class ComtradeConfig:
             self.latest_path,
             self.raw_files_path,
             self.archived_path,
+            self.intermediate_class_path,
             self.corrupted_path,
             self.aggregated_by_year_stata_path,
             self.aggregated_by_year_parquet_path,
             self.download_report_path,
             self.raw_files_parquet_path,
+            self.conversion_weights_path,
+            self.conversion_group_path,
+            self.concordance_tables_path,
+            self.converted_final_path
         ]
         for path in paths:
             path.mkdir(parents=True, exist_ok=True)

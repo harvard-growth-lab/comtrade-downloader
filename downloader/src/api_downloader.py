@@ -36,7 +36,6 @@ class ComtradeDownloader(object):
         self.downloader = BaseDownloader.create_downloader(self.config)
         self.config.logger.info(f"Beginning downloader...")
         for year in self.config.years:
-            
             year_path = Path(self.config.raw_files_path / str(year))
 
             last_updated = self.get_last_download_date(year)
@@ -63,9 +62,11 @@ class ComtradeDownloader(object):
             parquet_path = Path(self.config.raw_files_parquet_path / str(year))
             parquet_path.mkdir(parents=True, exist_ok=True)
 
-            #TODO only process if newly downloaded files
-            
-            self.downloader.process_downloaded_files(year, convert=True, save_all_parquet_files=False)
+            # TODO only process if newly downloaded files
+
+            self.downloader.process_downloaded_files(
+                year, convert=True, save_all_parquet_files=False
+            )
 
             relocated_files = self.keep_most_recent_published_data(year, parquet_path)
 
@@ -165,9 +166,9 @@ class ComtradeDownloader(object):
             int(os.environ.get("SLURM_JOB_CPUS_PER_NODE", 1)),
         )
         mem = int(os.environ.get("SLURM_MEM_PER_NODE")) / 1024
-        
-        dfs=[]
-        
+
+        dfs = []
+
         for f in glob.glob(os.path.join(year_path, "*.parquet")):
             ddf = dd.read_parquet(
                 f,
@@ -178,12 +179,26 @@ class ComtradeDownloader(object):
                 npartitions=n_cores,
                 blocksize=str(mem) + "GB",
             )
-            
+
             # Comtrade API returns aggregated data, need to filter to only include rolled up totals
             try:
-                ddf = ddf[(ddf.motCode=="0") & (ddf.mosCode=="0") & (ddf.customsCode=="C00") & (ddf.flowCode.isin(["M", "X", "RM", "RX"])) & (ddf.partner2Code==0)]
-                ddf = ddf.drop(columns=["isAggregate", "customsCode", "motCode", "mosCode", "partner2Code"])
-            
+                ddf = ddf[
+                    (ddf.motCode == "0")
+                    & (ddf.mosCode == "0")
+                    & (ddf.customsCode == "C00")
+                    & (ddf.flowCode.isin(["M", "X", "RM", "RX"]))
+                    & (ddf.partner2Code == 0)
+                ]
+                ddf = ddf.drop(
+                    columns=[
+                        "isAggregate",
+                        "customsCode",
+                        "motCode",
+                        "mosCode",
+                        "partner2Code",
+                    ]
+                )
+
             except:
                 ddf = ddf[(ddf.flowCode.isin(["M", "X", "RM", "RX"]))]
                 ddf = ddf.drop(columns=["isAggregate"])
@@ -205,8 +220,8 @@ class ComtradeDownloader(object):
 
     def merge_iso_codes(self, df):
         """ """
-        df['reporterCode'] = df.reporterCode.astype('int16')
-        df['partnerCode'] = df.partnerCode.astype('int16')
+        df["reporterCode"] = df.reporterCode.astype("int16")
+        df["partnerCode"] = df.partnerCode.astype("int16")
         df = df.merge(self.downloader.reporters, on="reporterCode", how="left").merge(
             self.downloader.partners, on="partnerCode", how="left"
         )

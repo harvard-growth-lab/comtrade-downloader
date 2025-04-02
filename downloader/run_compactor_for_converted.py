@@ -18,7 +18,7 @@ import logging
 
 def main():
     """
-    Downloads Classic Data from Comtrade or data as reported by reporting countries
+    Compacts converted data
 
     Comtrade provides data as reported referred to as Classic and data that has been
     coverted into each classification, referred to as Final
@@ -28,7 +28,7 @@ def main():
     Downloader output aggregates data across all reporters for one year
     """
 
-    downloaders = {"H0": 1996}#, "H4": 2012}
+    downloaders = { "H4": 2017} #"H0": 1996}#,}
     # get all as reported
 
     for classification, classification_start_year in downloaders.items():
@@ -40,7 +40,7 @@ def main():
             product_classification=classification,
             log_level="INFO",
             start_year=classification_start_year,  # 1960,
-            end_year=1996, #datetime.now().year,
+            end_year=2023, #datetime.now().year,
             reporter_iso3_codes=[],  # list of iso3codes
             partner_iso3_codes=[],
             commodity_codes=[],
