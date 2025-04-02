@@ -27,8 +27,7 @@ class ComtradeFile:
                 self.published_date = datetime.strptime(match.group("date"), "%Y-%m-%d")
                 return
         raise ValueError(f"File format has not been handled: {self.name}")
-    
-    
+
     def swap_classification(self, new_classification):
         """
         Swap the classification in the filename and update the object's properties.

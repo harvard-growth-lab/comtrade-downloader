@@ -56,7 +56,7 @@ def main():
             converted_files=True,
         )
         print(f"initiating program {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
-        downloader_HS = ComtradeDownloader(config_HS)
+        downloader_HS = ComtradeDownloader(config_HS, start_year, end_year)
         downloader_HS.run_compactor()
         print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 

@@ -58,6 +58,9 @@ def main():
         print(f"initiating program {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
         downloader_HS = ComtradeDownloader(config_HS)
         downloader_HS.download_comtrade_yearly_bilateral_flows()
+        # run conversion
+        # convert = ClassificationConverter(classification, start_year, end_year)
+        # convert.run()
         downloader_HS.run_compactor()
         print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 
