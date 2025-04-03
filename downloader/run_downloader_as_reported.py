@@ -2,6 +2,7 @@
 
 from src.api_downloader import ComtradeDownloader
 from src.configure_downloader import ComtradeConfig
+from src.converter import ClassificationConverter
 import requests
 import pandas as pd
 import requests
@@ -28,7 +29,8 @@ def main():
     Downloader output aggregates data across all reporters for one year
     """
 
-    downloaders = {"S1":1962, "S2": 1976, "S3": 1988, "S4": 2007} #"H6": 2022} # "H2": 2020, "H3": 2007, "H4": 2012, "H5": 2017, "H6": 2022} 
+    downloaders = {"H4":1995}#, "H6":1995} #"H0": 1995}#, } 
+                   #"S1":1962, "S2": 1976, "S3": 1988, "S4": 2007} #"H6": 2022} # "H2": 2020, "H3": 2007, "H4": 2012, "H5": 2017, "H6": 2022} 
     # get all as reported
 
     for classification, classification_start_year in downloaders.items():
@@ -53,14 +55,14 @@ def main():
             delete_tmp_files=False,
             compress_output=True,
             suppress_print=False,
-            converted_files=False,
+            converted_files=True,
         )
         print(f"initiating program {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
         downloader_HS = ComtradeDownloader(config_HS)
-        downloader_HS.download_comtrade_yearly_bilateral_flows()
+        # downloader_HS.download_comtrade_yearly_bilateral_flows()
         # run conversion
-        # convert = ClassificationConverter(classification, start_year, end_year)
-        # convert.run()
+        convert = ClassificationConverter(config_HS, classification)
+        convert.run()
         downloader_HS.run_compactor()
         print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 

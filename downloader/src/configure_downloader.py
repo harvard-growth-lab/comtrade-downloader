@@ -77,8 +77,6 @@ class ComtradeConfig:
 
     @property
     def raw_files_parquet_path(self) -> Path:
-        if self.converted_files:
-            return self.output_dir / "converted" / self.classification_code
         return self.output_dir / "raw_parquet" / self.classification_code
 
     @property
@@ -154,10 +152,12 @@ class ComtradeConfig:
         logger = logging.getLogger("ComtradeDownloader")
         logger.setLevel(log_level)
         # Create handler
-        handler = logging.StreamHandler(sys.stdout)
+        handler = logging.FileHandler(filename=f'logs/run_downloader_{datetime.now()}.log',
+                                     delay=False)
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
+        
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         self.logger = logger

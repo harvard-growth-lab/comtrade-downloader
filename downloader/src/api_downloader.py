@@ -158,7 +158,10 @@ class ComtradeDownloader(object):
     def aggregate_data_by_year(self, year):
         """ """
         # TODO: improve performance
-        year_path = Path(self.config.raw_files_parquet_path) / str(year)
+        if self.config.converted_files:
+            year_path = Path(self.config.converted_final_path) / str(year)
+        else:
+            year_path = Path(self.config.raw_files_parquet_path) / str(year)
 
         # Get CPU count for parallel processing
         n_cores = max(
