@@ -28,7 +28,7 @@ def main():
     Downloader output aggregates data across all reporters for one year
     """
 
-    downloaders = {"H0": 1995, "H4": 2012}
+    downloaders = {"H4": 2012}# "H0": 1995}
     # downloaders = {"H0": 2022} #, "H4": 2012}
 
     for classification, classification_start_year in downloaders.items():
@@ -39,7 +39,7 @@ def main():
             product_classification=classification,
             log_level="INFO",
             start_year=classification_start_year,  # 1960,
-            end_year=datetime.now().year,
+            end_year=datetime.now().year - 1,
             reporter_iso3_codes=[],  # list of iso3codes
             partner_iso3_codes=[],
             commodity_codes=[],
@@ -57,13 +57,13 @@ def main():
         print(
             f"initiating {classification} download {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}"
         )
-        downloader = ComtradeDownloader(config_HS)
+        # downloader = ComtradeDownloader(config_HS)
         # downloader.download_comtrade_yearly_bilateral_flows()
         print(f"requires memory allocation of at least 20GB")
-        downloader.run_compactor()
+        # downloader.run_compactor()
         print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 
-    downloaders = {"S1": [1962, 1975], "S2": [1976, datetime.now().year - 2]}
+    downloaders = {"S2": [1976, datetime.now().year - 2]} #"S1": [1962, 1975], 
     # SITC is run through concordance table conversion in atlas cleaning
 
     for classification, classification_years in downloaders.items():

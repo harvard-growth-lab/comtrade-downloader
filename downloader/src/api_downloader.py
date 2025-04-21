@@ -173,26 +173,27 @@ class ComtradeDownloader(object):
         dfs = []
 
         for f in glob.glob(os.path.join(year_path, "*.parquet")):
-            ddf = dd.read_parquet(
+            df = pd.read_parquet(
                 f,
-                compression="snappy",
-                sep="\t",
-                usecols=list(self.downloader.columns.keys()),
-                dtype=self.downloader.columns,
-                npartitions=n_cores,
-                blocksize=str(mem) + "GB",
+                columns=list(self.downloader.columns.keys()),
             )
+            
+            # handle known errors
+            df = self.handle_known_errors(df, f)
+            # assert values are expected
 
             # Comtrade API returns aggregated data, need to filter to only include rolled up totals
+            
+                                
             try:
-                ddf = ddf[
-                    (ddf.motCode == "0")
-                    & (ddf.mosCode == "0")
-                    & (ddf.customsCode == "C00")
-                    & (ddf.flowCode.isin(["M", "X", "RM", "RX"]))
-                    & (ddf.partner2Code == 0)
+                df = df[
+                    (df.motCode == "0")
+                    & (df.mosCode == "0")
+                    & (df.customsCode == "C00")
+                    & (df.flowCode.isin(["M", "X", "RM", "RX"]))
+                    & (df.partner2Code == 0)
                 ]
-                ddf = ddf.drop(
+                df = df.drop(
                     columns=[
                         "isAggregate",
                         "customsCode",
@@ -203,23 +204,53 @@ class ComtradeDownloader(object):
                 )
 
             except:
-                ddf = ddf[(ddf.flowCode.isin(["M", "X", "RM", "RX"]))]
-                ddf = ddf.drop(columns=["isAggregate"])
+                df = df[(df.flowCode.isin(["M", "X", "RM", "RX"]))]
+                df = df.drop(columns=["isAggregate"])
+                
+            if df.empty:
+                self.config.logger.info(f"Error check file: {f}, returning empty after filtering")
+                                       
+            df.groupby(
+                ["reporterCode", "partnerCode", "flowCode", "cmdCode"], observed=False
+            ).agg({
+                "qty":"sum",
+                "CIFValue":"sum",
+                "FOBValue":"sum",
+                "primaryValue":"sum"}).reset_index()
+            
 
-            dfs.append(ddf)
+            dfs.append(df)
+            
+        return pd.concat(dfs)
+    
+    
+    def handle_known_errors(self, df, f):
+        """
+        """
+        string_columns = df.select_dtypes(
+                include=['object', 'string', 'category']
+            ).columns
+            
+        for col in string_columns:
+            df[col] = df[col].str.strip()
+        
+        # known issue, comtrade mosCode value is -1, update to 0
         try:
-            ddf = dd.concat(dfs)
-        except ValueError as e:
-            self.config.logger.info(e)
-            return
-
-        ddf.groupby(
-            ["reporterCode", "partnerCode", "flowCode", "cmdCode"], observed=False
-        ).agg("sum").reset_index()
-
-        with ProgressBar():
-            df = ddf.compute(scheduler="processes", num_workers=n_cores)
+            if '-1' in df.mosCode.unique():         
+                df['mosCode'] = df['mosCode'].astype(str)
+                df.loc[df.mosCode=='-1', 'mosCode'] = '0'
+                file_obj = ComtradeFile(f.split('/')[-1])
+                self.config.logger.info(f"handled -1 value in mosCode for {file_obj.reporter_code}, year {file_obj.year}")
+        except:
+            pass
+        
+        try:
+            if df.cmdCode.nunique() == 1:
+                self.config.logger.info(f"Country {file_obj.reporter_code}, year {file_obj.year} only reported TOTALS, expect empty df")
+        except:
+            pass
         return df
+
 
     def merge_iso_codes(self, df):
         """ """

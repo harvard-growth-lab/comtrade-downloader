@@ -150,9 +150,12 @@ class ComtradeConfig:
 
     def _setup_logger(self, log_level) -> logging.Logger:
         logger = logging.getLogger("ComtradeDownloader")
+        if logger.handlers:
+            logger.handlers.clear()
+
         logger.setLevel(log_level)
         # Create handler
-        handler = logging.FileHandler(filename=f'logs/run_downloader_{datetime.now()}.log',
+        handler = logging.FileHandler(filename=f'logs/run_downloader_{log_level}_{datetime.now()}.log',
                                      delay=False)
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

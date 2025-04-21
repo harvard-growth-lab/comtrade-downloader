@@ -27,11 +27,11 @@ class ClassificationConverter(object):
         "primaryValue": float,
     }
     CLASSIFICATIONS = {
-        # "S1": 1962,
-        # "S2": 1976,
-        # "S3": 1988,
+        "S1": 1962,
+        "S2": 1976,
+        "S3": 1988,
         # "S4": 2007,
-        "H0": 1995,
+        "H0": 1988,
         "H1": 1996,
         "H2": 2002,
         "H3": 2007,
@@ -41,6 +41,9 @@ class ClassificationConverter(object):
     }
 
     conversion_links = [
+        "S1", 
+        "S2", 
+        "S3",
         "H0",
         "H1",
         "H2",
@@ -48,7 +51,8 @@ class ClassificationConverter(object):
         "H4",
         "H5",
         "H6",
-    ]  # "S1", "S2", "S3", "S3",
+    ]
+    
 
 
     def __init__(self, config: ComtradeConfig, target_class):
@@ -62,6 +66,16 @@ class ClassificationConverter(object):
         """
         """
         for source_class in self.CLASSIFICATIONS:
+            if source_class.startswith("H"):
+                self.source_product_level = 6
+            else: 
+                self.source_product_level = 4
+                
+            if self.target_class.startswith("H"):
+                self.target_product_level = 6
+            else: 
+                self.target_product_level = 4
+
             self.config.logger.info(f"Starting conversion for source {source_class}")
             if source_class == self.target_class:
                 # moves already reported
@@ -109,7 +123,6 @@ class ClassificationConverter(object):
 
         as_reported_trade = pd.read_parquet(file)
         as_reported_trade["cmdCode"] = as_reported_trade.cmdCode.astype(str)
-
         try:
             as_reported_trade = as_reported_trade[
                 (as_reported_trade.motCode == "0")
@@ -118,6 +131,7 @@ class ClassificationConverter(object):
                 & (as_reported_trade.flowCode.isin(["M", "X", "RM", "RX"]))
                 & (as_reported_trade.partner2Code == 0)
             ]
+            
             as_reported_trade = as_reported_trade.drop(
                 columns=[
                     "customsCode",
@@ -128,6 +142,15 @@ class ClassificationConverter(object):
             )
         except:
             as_reported_trade = as_reported_trade[(as_reported_trade.flowCode.isin(["M", "X", "RM", "RX"]))]
+                                                   
+        as_reported_trade.groupby(
+            ["reporterCode", "partnerCode", "flowCode", "cmdCode"], observed=False
+        ).agg({
+            "qty":"sum",
+            "CIFValue":"sum",
+            "FOBValue":"sum",
+            "primaryValue":"sum"}).reset_index()
+
 
         reporter_code = ComtradeFile(file).reporter_code
         self.config.logger.info(f"Converting file for reporter {reporter_code}: {file}")
@@ -152,6 +175,7 @@ class ClassificationConverter(object):
             .reset_index()
         )
         
+        converted_df = converted_df[~((converted_df.target_trade_val==0)&(converted_df.target_FOBval==0)&(converted_df.target_CIFval==0))]
 
         converted_df = converted_df.rename(
             columns={
@@ -162,12 +186,15 @@ class ClassificationConverter(object):
             }
         )
         converted_df = converted_df[~((converted_df.primaryValue==0)&(converted_df.FOBValue==0)&(converted_df.CIFValue==0))]
-        
+                
         converted_df["cmdCode"] = converted_df["cmdCode"].astype(str)
         converted_df["cmdCode"] = converted_df["cmdCode"].apply(
-            lambda x: x.zfill(6) if len(x) in [5, 4, 3] and x != "TOTAL" else x
-        )
-        
+            lambda x: x.zfill(self.source_product_level) if len(x) < self.source_product_level and x != "TOTAL" else x)
+        if converted_df.empty:
+            if len(as_reported_trade.cmdCode.unique()) == 1:
+                self.config.logger.error(f"Country {reporter_code} only reporting totals")
+            else:
+                self.config.logger.error(f"Check file: {file}, returning empty after converting")
         return converted_df
 
 
@@ -181,57 +208,48 @@ class ClassificationConverter(object):
         # forward
         # move from H0 to H3, H3 target
         # how do I enforce close to zero, close to one?
-        conversion_links = [
-            "H0",
-            "H1",
-            "H2",
-            "H3",
-            "H4",
-            "H5",
-            "H6",
-        ]  # "S1", "S2", "S3", "S3",
-        source_position = conversion_links.index(source_class)
-        target_position = conversion_links.index(self.target_class)
+        source_position = self.conversion_links.index(source_class)
+        target_position = self.conversion_links.index(self.target_class)
         if source_position < target_position:
             direction = "forward"
         else:
             direction = "backward"
 
         if direction == "forward":
-            next_class = conversion_links[target_position - 1]
-            conversion_link = conversion_links[source_position : target_position - 1]
+            next_class = self.conversion_links[target_position - 1]
+            conversion_link = self.conversion_links[source_position : target_position - 1]
             conversion_link.reverse()
         else:
-            next_class = conversion_links[target_position + 1]
-            conversion_link = conversion_links[
+            next_class = self.conversion_links[target_position + 1]
+            conversion_link = self.conversion_links[
                 target_position + 2 : source_position + 1
             ]
 
-        weights = pd.read_csv(self.config.conversion_weights_path / f"{next_class}:{self.target_class}.csv")
-        weights[[next_class, self.target_class]] = weights[
-            [next_class, self.target_class]
-        ].astype(str)
+        weights = pd.read_csv(self.config.conversion_weights_path / f"{next_class}:{self.target_class}.csv")#, dtype={next_class: str, self.target_class: str})
+        weights = self.handle_product_code_string(weights, next_class)
+        weights = self.handle_product_code_string(weights, self.target_class)
         weights = weights.rename(
             columns={"weight": f"weight_{next_class}_{self.target_class}"}
         )
 
         for seq_class in conversion_link:
             next_class_weights = pd.read_csv(
-                self.config.conversion_weights_path / f"{seq_class}:{next_class}.csv"
-            )
-            next_class_weights[[seq_class, next_class]] = next_class_weights[
-                [seq_class, next_class]
-            ].astype(str)
+                self.config.conversion_weights_path / f"{seq_class}:{next_class}.csv")#,
+                #dtype={seq_class: str, next_class: str}
+            #)
+            next_class_weights = self.handle_product_code_string(next_class_weights, seq_class)
+            next_class_weights = self.handle_product_code_string(next_class_weights, next_class)
+
             next_class_weights = next_class_weights.rename(
                 columns={"weight": f"weight_{seq_class}_{next_class}"}
             )
-
             weights = weights.merge(next_class_weights, on=next_class, how="right")
 
             weights[f"weight_{seq_class}_{self.target_class}"] = (
                 weights[f"weight_{seq_class}_{next_class}"]
                 * weights[f"weight_{next_class}_{self.target_class}"]
             )
+            
 
             weights = weights.drop(
                 columns=[
@@ -241,15 +259,30 @@ class ClassificationConverter(object):
                 ]
             )
 
-            weights = weights.drop_duplicates(subset=[seq_class, self.target_class])
+            weights = weights.drop_duplicates()
             next_class = seq_class
             
+        weights = weights[weights[f"weight_{source_class}_{self.target_class}"]>0]
         weights = weights.rename(columns={f"weight_{source_class}_{self.target_class}":"weight"})
-        weights[source_class] = weights[source_class].astype(str).apply(lambda x: x.zfill(6) if len(x) in [3, 4, 5] else x)
-        weights[self.target_class] = weights[self.target_class].astype(str).apply(lambda x: x.zfill(6) if len(x) in [3, 4, 5] else x)
-
+        
+        weights_sum = weights.groupby(source_class)['weight'].sum()
+        assert all(abs(weights_sum - 1.0) < 0.01), self.config.logger.error(f"Not all weight sums are within 0.01 of 1. Found: {weights_sum[abs(weights_sum - 1.0) >= 0.01]}")
         return weights
+    
+    def handle_product_code_string(self, df, classification):
+        if classification.startswith("H"):
+            detailed_product_level = 6
+        else:
+            detailed_product_level = 4
+        if not df[df[classification].isna()].empty:
+            df = df[~(df[classification].isna())]
+            self.config.logger.error(f"dropping nans from conversion table: \n {df[df[classification].isna()].head()}")
+        df[classification] = df[classification].astype(int).astype(str)
+        df.loc[:, classification] = df[classification].apply(lambda x: x.zfill(detailed_product_level) if len(x) < detailed_product_level and x != "TOTAL" else x)
 
+        return df
+                
+        
     def handle_as_reported(self, classification):
         """
         trade data reported in the classification is relocated to converted folder
@@ -276,8 +309,10 @@ class ClassificationConverter(object):
             # ('1digit', lambda x: x[:1]),          # 1-digit
             ("2digit", lambda x: x[:2]),  # 2-digit
             ("4digit", lambda x: x[:4]),  # 4-digit
-            ("6digit", lambda x: x),  # Original 6-digit (for completeness)
+              
         ]
+        if self.target_product_level==6:
+            agg_levels.append(("6digit", lambda x: x)) # Original 6-digit (for completeness)
 
         group_cols = ["reporterCode", "flowCode", "partnerCode"]
         value_cols = ["qty", "primaryValue", "CIFValue", "FOBValue"]
@@ -302,13 +337,13 @@ class ClassificationConverter(object):
                 level_df = level_df.drop(f"level_{level_name}", axis=1)
 
                 # avoid duplication)
-                if level_name == "6digit":
+                if level_name == f"{self.target_product_level}digit":
                     continue
 
             level_df["level"] = level_name
             results.append(level_df)
 
-        df["level"] = "6digit"
+        df["level"] = f"{self.target_product_level}digit"
         results.append(df[group_cols + ["cmdCode", "level"] + value_cols])
 
         return pd.concat(results, ignore_index=True)
@@ -320,5 +355,7 @@ class ClassificationConverter(object):
         final_path.mkdir(parents=True, exist_ok=True)
 
         final_file = f"{final_path}/{file_obj.name}"
+
         result.to_parquet(final_file, index=False)
+        
         self.config.logger.info(f"Saved to final file: {final_file}")
