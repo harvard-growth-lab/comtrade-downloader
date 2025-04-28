@@ -29,7 +29,7 @@ def main():
     Downloader output aggregates data across all reporters for one year
     """
 
-    downloaders = {"H0":1962, "H4": 1962, "S3": 1962} #"H0": 1996}#,}
+    downloaders = {"H4": 1962}#,"H0":1962, "S3": 1962} #"H0": 1996}#,}
     # get all as reported
 
     for classification, classification_start_year in downloaders.items():
@@ -41,7 +41,7 @@ def main():
             product_classification=classification,
             log_level="INFO",
             start_year=classification_start_year,  # 1960,
-            end_year=2023, #datetime.now().year,
+            end_year=datetime.now().year,
             reporter_iso3_codes=[],  # list of iso3codes
             partner_iso3_codes=[],
             commodity_codes=[],

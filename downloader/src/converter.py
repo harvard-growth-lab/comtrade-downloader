@@ -65,7 +65,7 @@ class ClassificationConverter(object):
     def run(self):
         """
         """
-        for source_class in self.CLASSIFICATIONS:
+        for source_class in self.CLASSIFICATIONS.keys():
             if source_class.startswith("H"):
                 self.source_product_level = 6
             else: 
@@ -90,12 +90,13 @@ class ClassificationConverter(object):
                 
     def run_conversion(self, weight, source_class):
         """Run conversion in specified direction for given years"""
-        for as_reported_year in range(self.config.start_year, self.config.end_year):
+        for as_reported_year in range(self.config.start_year, self.config.end_year + 1):
             self.config.logger.info(f"Beginning conversion for {as_reported_year}...")
 
             # Find all files in source classification for conversion
-            self.config.classification_code = source_class
-            raw_parquet_path = Path(self.config.raw_files_parquet_path) / str(as_reported_year)
+            # self.config.classification_code = source_class
+            raw_parquet_path = Path(self.config.raw_files_parquet_path.parent / source_class / str(as_reported_year))
+            # raw_parquet_path = Path(self.config.raw_files_parquet_path) / str(as_reported_year)
             as_reported_files = list(raw_parquet_path.glob("*.parquet"))
 
             # Process each file
@@ -114,6 +115,7 @@ class ClassificationConverter(object):
 
                 file_obj = ComtradeFile(str(file).split('/')[-1])
                 file_obj.swap_classification(self.target_class)
+                
                 self.save_converted_data(as_reported_year, file_obj, result)
                 del result
 
@@ -189,7 +191,7 @@ class ClassificationConverter(object):
                 
         converted_df["cmdCode"] = converted_df["cmdCode"].astype(str)
         converted_df["cmdCode"] = converted_df["cmdCode"].apply(
-            lambda x: x.zfill(self.source_product_level) if len(x) < self.source_product_level and x != "TOTAL" else x)
+            lambda x: x.zfill(self.target_product_level) if len(x) < self.target_product_level and x != "TOTAL" else x)
         if converted_df.empty:
             if len(as_reported_trade.cmdCode.unique()) == 1:
                 self.config.logger.error(f"Country {reporter_code} only reporting totals")
@@ -265,8 +267,14 @@ class ClassificationConverter(object):
         weights = weights[weights[f"weight_{source_class}_{self.target_class}"]>0]
         weights = weights.rename(columns={f"weight_{source_class}_{self.target_class}":"weight"})
         
+        # force product conversions to equal one
+        weights['sum'] = weights.groupby(source_class)['weight'].transform('sum')
+        weights['weight'] = weights['weight'] / weights['sum']
+        weights = weights.drop(columns='sum')
+        
         weights_sum = weights.groupby(source_class)['weight'].sum()
         assert all(abs(weights_sum - 1.0) < 0.01), self.config.logger.error(f"Not all weight sums are within 0.01 of 1. Found: {weights_sum[abs(weights_sum - 1.0) >= 0.01]}")
+        del weights_sum
         return weights
     
     def handle_product_code_string(self, df, classification):
@@ -287,13 +295,15 @@ class ClassificationConverter(object):
         """
         trade data reported in the classification is relocated to converted folder
         """
-        for year in range(self.config.start_year, self.config.end_year):
-            self.config.classification_code = classification
-            destination_path = Path(
-                self.config.converted_final_path / str(year)
-            )
-            original_paths = Path(
-                self.config.raw_files_parquet_path / str(year) ).glob("*.parquet")
+        for year in range(self.config.start_year, self.config.end_year + 1):
+            # self.config.classification_code = classification
+            destination_path = Path(self.config.converted_final_path.parent / classification / str(year))
+            original_paths = Path(self.config.raw_files_parquet_path.parent / classification / str(year)).glob("*.parquet")
+            # destination_path = Path(
+            #     self.config.converted_final_path / str(year)
+            # )
+            # original_paths = Path(
+            #     self.config.raw_files_parquet_path / str(year) ).glob("*.parquet")
             
             destination_path.mkdir(parents=True, exist_ok=True)
             for file in original_paths:
@@ -345,17 +355,15 @@ class ClassificationConverter(object):
 
         df["level"] = f"{self.target_product_level}digit"
         results.append(df[group_cols + ["cmdCode", "level"] + value_cols])
-
         return pd.concat(results, ignore_index=True)
 
     def save_converted_data(self, year, file_obj, result):
         """Save converted data to intermediate and final locations"""
-        self.config.classification_code = self.target_class
-        final_path = Path(f"{self.config.converted_final_path}/{year}")
+        # self.config.classification_code = self.target_class
+        final_path = Path(self.config.converted_final_path.parent / self.target_class / str(year))
+        # final_path = Path(f"{self.config.converted_final_path}/{year}")
         final_path.mkdir(parents=True, exist_ok=True)
 
         final_file = f"{final_path}/{file_obj.name}"
-
         result.to_parquet(final_file, index=False)
-        
         self.config.logger.info(f"Saved to final file: {final_file}")

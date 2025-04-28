@@ -155,13 +155,16 @@ class ComtradeDownloader(object):
                     )
         return relocated
 
-    def aggregate_data_by_year(self, year):
+    def aggregate_data_by_year(self, year) -> pd.DataFrame():
         """ """
         # TODO: improve performance
         if self.config.converted_files:
             year_path = Path(self.config.converted_final_path) / str(year)
         else:
             year_path = Path(self.config.raw_files_parquet_path) / str(year)
+            
+        if not year_path.exists():
+            return pd.DataFrame()
 
         # Get CPU count for parallel processing
         n_cores = max(
@@ -171,7 +174,7 @@ class ComtradeDownloader(object):
         mem = int(os.environ.get("SLURM_MEM_PER_NODE")) / 1024
 
         dfs = []
-
+        # import pdb; pdb.set_trace()
         for f in glob.glob(os.path.join(year_path, "*.parquet")):
             df = pd.read_parquet(
                 f,
@@ -218,9 +221,11 @@ class ComtradeDownloader(object):
                 "FOBValue":"sum",
                 "primaryValue":"sum"}).reset_index()
             
+            # import pdb; pdb.set_trace()
+            
 
             dfs.append(df)
-            
+        
         return pd.concat(dfs)
     
     
