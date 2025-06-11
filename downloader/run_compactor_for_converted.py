@@ -1,5 +1,4 @@
 # intiates downloader objects for Comtrade Classification (HS12, HS92, SITC)
-
 from src.api_downloader import ComtradeDownloader
 from src.configure_downloader import ComtradeConfig
 from src.converter import ClassificationConverter
@@ -29,7 +28,7 @@ def main():
     Downloader output aggregates data across all reporters for one year
     """
 
-    downloaders = {"H4": 1962}#,"H0":1962, "S3": 1962} #"H0": 1996}#,}
+    downloaders = {"S2": 1962, "S1": 1976, "H0": 1995, "H4": 2012}
     # get all as reported
 
     for classification, classification_start_year in downloaders.items():
@@ -41,7 +40,7 @@ def main():
             product_classification=classification,
             log_level="INFO",
             start_year=classification_start_year,  # 1960,
-            end_year=datetime.now().year,
+            end_year=datetime.now().year - 1,
             reporter_iso3_codes=[],  # list of iso3codes
             partner_iso3_codes=[],
             commodity_codes=[],

@@ -174,7 +174,6 @@ class ComtradeDownloader(object):
         mem = int(os.environ.get("SLURM_MEM_PER_NODE")) / 1024
 
         dfs = []
-        # import pdb; pdb.set_trace()
         for f in glob.glob(os.path.join(year_path, "*.parquet")):
             df = pd.read_parquet(
                 f,
@@ -186,47 +185,65 @@ class ComtradeDownloader(object):
             # assert values are expected
 
             # Comtrade API returns aggregated data, need to filter to only include rolled up totals
+            df = self.handle_rolled_up_totals(df, f)
             
-                                
-            try:
-                df = df[
-                    (df.motCode == "0")
-                    & (df.mosCode == "0")
-                    & (df.customsCode == "C00")
-                    & (df.flowCode.isin(["M", "X", "RM", "RX"]))
-                    & (df.partner2Code == 0)
-                ]
-                df = df.drop(
-                    columns=[
-                        "isAggregate",
-                        "customsCode",
-                        "motCode",
-                        "mosCode",
-                        "partner2Code",
-                    ]
-                )
-
-            except:
-                df = df[(df.flowCode.isin(["M", "X", "RM", "RX"]))]
-                df = df.drop(columns=["isAggregate"])
-                
-            if df.empty:
-                self.config.logger.info(f"Error check file: {f}, returning empty after filtering")
-                                       
-            df.groupby(
-                ["reporterCode", "partnerCode", "flowCode", "cmdCode"], observed=False
-            ).agg({
-                "qty":"sum",
-                "CIFValue":"sum",
-                "FOBValue":"sum",
-                "primaryValue":"sum"}).reset_index()
-            
-            # import pdb; pdb.set_trace()
-            
-
             dfs.append(df)
         
         return pd.concat(dfs)
+    
+    def handle_rolled_up_totals(self, df, f):
+        """
+        """
+        df_temp = df.copy()
+        
+        # Define the filtering conditions
+        filter_conditions = {
+            "customsCode": "C00",
+            "motCode": "0",
+            "mosCode": "0",
+            "partner2Code": 0,
+            "flowCode": ["M", "X", "RM", "RX"]
+        }
+
+        conditions = []
+        for col, value in filter_conditions.items():
+            if col in df.columns:
+                if isinstance(value, list):
+                    conditions.append(f"{col}.isin({value})")
+                else:
+                    conditions.append(f"{col} == {repr(value)}")
+        
+        if conditions:
+            query_str = " and ".join(conditions)
+            try:
+                df = df.query(query_str)
+            except Exception as e:
+                self.config.logger.warning(f"Error applying filters: {e}")
+        
+        drop_cols = ["isAggregate", "customsCode", "motCode", "mosCode", "partner2Code"]
+        for col in drop_cols:
+            try:
+                df = df.drop(columns=col)
+            except KeyError:
+                continue
+
+            
+        if df.empty:
+            df_temp.to_parquet(
+                Path(self.config.handle_empty_files_path / f"{f.split('/')[-1]}.parquet"),
+                compression="snappy",
+                index=False)
+            self.config.logger.info(f"Error check file: {f}, returning empty after filtering")
+        
+        del df_temp                          
+        df.groupby(
+            ["reporterCode", "partnerCode", "flowCode", "cmdCode"], observed=False
+        ).agg({
+            "qty":"sum",
+            "CIFValue":"sum",
+            "FOBValue":"sum",
+            "primaryValue":"sum"}).reset_index()
+        return df
     
     
     def handle_known_errors(self, df, f):

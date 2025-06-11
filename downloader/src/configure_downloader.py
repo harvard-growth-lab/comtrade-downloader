@@ -116,23 +116,13 @@ class ComtradeConfig:
     @property
     def conversion_weights_path(self) -> Path:
         return (
-            Path("/n/hausmann_lab/lab/atlas/bustos_yildirim/paper/product_conversion")
-            / "weights"
+            Path("/n/hausmann_lab/lab/atlas/bustos_yildirim/weights_generator/generator")
+            / "data/output/grouped_weights"
         )
-
+    
     @property
-    def conversion_group_path(self) -> Path:
-        return (
-            Path("/n/hausmann_lab/lab/atlas/bustos_yildirim/paper/product_conversion")
-            / "DataAtlas"
-        )
-
-    @property
-    def concordance_tables_path(self) -> Path:
-        return (
-            Path("/n/hausmann_lab/lab/atlas/bustos_yildirim/paper/product_conversion")
-            / "data_groups"
-        )
+    def handle_empty_files_path(self) -> Path:
+        return self.output_dir / "handle_empty_files"
 
     def _validate(self):
         if not self.api_key:
@@ -177,9 +167,8 @@ class ComtradeConfig:
             self.download_report_path,
             self.raw_files_parquet_path,
             self.conversion_weights_path,
-            self.conversion_group_path,
-            self.concordance_tables_path,
             self.converted_final_path,
+            self.handle_empty_files_path,
         ]
         for path in paths:
             path.mkdir(parents=True, exist_ok=True)

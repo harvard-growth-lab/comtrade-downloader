@@ -28,7 +28,7 @@ def main():
     Downloader output aggregates data across all reporters for one year
     """
 
-    downloaders = {"H0":1988} #"H0": 1995}#, } 
+    downloaders = {"H4":1988} #"H0": 1995}#, } 
                    #"S1":1962, "S2": 1976, "S3": 1988, "S4": 2007} #"H6": 2022} # "H2": 2020, "H3": 2007, "H4": 2012, "H5": 2017, "H6": 2022} 
     # get all as reported
 
@@ -59,7 +59,7 @@ def main():
         print(f"initiating program {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
         downloader_HS = ComtradeDownloader(config_HS)
         # downloader_HS.download_comtrade_yearly_bilateral_flows()
-        # downloader_HS.run_compactor()
+        downloader_HS.run_compactor()
         print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 
 
