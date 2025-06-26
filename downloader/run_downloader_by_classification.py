@@ -1,7 +1,7 @@
 # intiates downloader objects for Comtrade Classification (HS12, HS92, SITC)
 
-from src.api_downloader import ComtradeDownloader
-from src.configure_downloader import ComtradeConfig
+from src.download.api_downloader import ComtradeDownloader
+from src.download.configure_downloader import ComtradeConfig
 import requests
 import pandas as pd
 import requests
@@ -28,7 +28,7 @@ def main():
     Downloader output aggregates data across all reporters for one year
     """
 
-    downloaders = {"H4": 2012}# "H0": 1995}
+    downloaders = {"H4": 2012}  # "H0": 1995}
     # downloaders = {"H0": 2022} #, "H4": 2012}
 
     for classification, classification_start_year in downloaders.items():
@@ -63,7 +63,7 @@ def main():
         # downloader.run_compactor()
         print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 
-    downloaders = {"S2": [1976, datetime.now().year - 2]} #"S1": [1962, 1975], 
+    downloaders = {"S2": [1976, datetime.now().year - 2]}  # "S1": [1962, 1975],
     # SITC is run through concordance table conversion in atlas cleaning
 
     for classification, classification_years in downloaders.items():

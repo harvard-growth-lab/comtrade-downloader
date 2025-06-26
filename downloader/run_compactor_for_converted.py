@@ -1,7 +1,7 @@
 # intiates downloader objects for Comtrade Classification (HS12, HS92, SITC)
-from src.api_downloader import ComtradeDownloader
-from src.configure_downloader import ComtradeConfig
-from src.converter import ClassificationConverter
+from src.download.api_downloader import ComtradeDownloader
+from src.download.configure_downloader import ComtradeConfig
+from src.download.converter import ClassificationConverter
 import requests
 import pandas as pd
 import requests
@@ -55,13 +55,13 @@ def main():
             suppress_print=False,
             converted_files=True,
         )
-        
+
         convert = ClassificationConverter(config_HS, classification)
         convert.run()
         downloader_HS = ComtradeDownloader(config_HS)
         downloader_HS.run_compactor()
         print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 
+
 if __name__ == "__main__":
     main()
-
