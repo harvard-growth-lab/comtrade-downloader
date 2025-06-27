@@ -265,6 +265,7 @@ class ClassificationConverter(object):
         )
         weights = weights.drop(columns="group_id")
 
+        counter = 0
         for seq_class in conversion_link:
             next_class_weights = pd.read_csv(
                 self.config.conversion_weights_path
@@ -293,10 +294,18 @@ class ClassificationConverter(object):
 
             weights = weights.drop(
                 columns=[
-                    f"weight_{seq_class}_{next_class}",
+                    # f"weight_{seq_class}_{next_class}",
                     next_class,
-                    f"weight_{next_class}_{self.target_class}",
+                    # f"weight_{next_class}_{self.target_class}",
                 ]
+            )
+            counter += 1
+            weights = weights.rename(
+                columns={
+                    f"weight_{seq_class}_{next_class}": f"weight_{seq_class}_{next_class}_{counter}",
+                    next_class: f"next_class_temp_{counter}",
+                    f"weight_{next_class}_{self.target_class}": f"weight_{next_class}_{self.target_class}_{counter}",
+                }
             )
 
             weights = weights.drop_duplicates()
@@ -318,6 +327,11 @@ class ClassificationConverter(object):
             f"Not all weight sums are within 0.01 of 1. Found: {weights_sum[abs(weights_sum - 1.0) >= 0.01]}"
         )
         del weights_sum
+        weights.to_csv(
+            self.config.intermediate_data_path
+            / f"weights_chained_{source_class}_{self.target_class}.csv",
+            index=False,
+        )
         return weights
 
     def handle_product_code_string(self, df, classification):

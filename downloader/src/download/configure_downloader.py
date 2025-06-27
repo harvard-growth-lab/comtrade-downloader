@@ -59,8 +59,8 @@ class ComtradeConfig:
         self.converted_files = converted_files or False
 
         self._validate()
-        self._setup_logger(log_level)
         self._setup_paths()
+        self._setup_logger(log_level)
 
         if self.compress_output:
             self.file_extension = "gz"
@@ -88,8 +88,10 @@ class ComtradeConfig:
 
         logger.setLevel(log_level)
         # Create handler
+        log_path = self.base_path / "logs"
+        log_path.mkdir(parents=True, exist_ok=True)
         handler = logging.FileHandler(
-            filename=f"logs/run_downloader_{log_level}_{datetime.now()}.log",
+            filename=log_path / f"run_downloader_{log_level}_{datetime.now()}.log",
             delay=False,
         )
         formatter = logging.Formatter(
@@ -102,28 +104,35 @@ class ComtradeConfig:
 
     def _setup_paths(self):
         """Initialize all paths at once"""
-        base = self.output_dir
+        output_base = self.output_dir
         classification = self.classification_code
 
         # Paths with classification code
-        self.latest_path = base / "latest" / classification
-        self.raw_files_path = base / "raw" / classification
-        self.raw_files_parquet_path = base / "raw_parquet" / classification
-        self.intermediate_class_path = base / "intermediate_files" / classification
-        self.converted_final_path = base / "converted" / classification
-        self.archived_path = base / "archived" / classification
+        self.latest_path = output_base / "latest" / classification
+        self.raw_files_path = output_base / "raw" / classification
+        self.raw_files_parquet_path = output_base / "raw_parquet" / classification
+        self.intermediate_class_path = (
+            output_base / "intermediate_files" / classification
+        )
+        self.converted_final_path = output_base / "converted" / classification
+        self.archived_path = output_base / "archived" / classification
 
         # Paths without classification code
-        self.corrupted_path = base / "corrupted"
-        self.aggregated_by_year_stata_path = base / "aggregated_by_year" / "stata"
-        self.aggregated_by_year_parquet_path = base / "aggregated_by_year" / "parquet"
-        self.download_report_path = base / "atlas_download_reports"
-        self.handle_empty_files_path = base / "handle_empty_files"
-
-        # Special case
-        self.conversion_weights_path = (
-            Path(__file__).parent.parent.parent / "data" / "conversion_weights"
+        self.corrupted_path = output_base / "corrupted"
+        self.aggregated_by_year_stata_path = (
+            output_base / "aggregated_by_year" / "stata"
         )
+        self.aggregated_by_year_parquet_path = (
+            output_base / "aggregated_by_year" / "parquet"
+        )
+        self.download_report_path = output_base / "atlas_download_reports"
+        self.handle_empty_files_path = output_base / "handle_empty_files"
+
+        # base paths
+        self.base_path = Path(__file__).parent.parent.parent
+        self.data_path = self.base_path / "data"
+        self.conversion_weights_path = self.data_path / "conversion_weights"
+        self.intermediate_data_path = self.data_path / "intermediate"
 
         # Create all directories
         for attr_name in dir(self):
