@@ -2,14 +2,11 @@
 # coding: utf-8
 
 """
-ComtradeDownloader object uses apicomtradecall to output reporter data 
+ComtradeDownloader object uses apicomtradecall to output reporter data
 by Classification Code by Year by Reporter
 """
 import pandas as pd
-import dask.dataframe as dd
-from dask.diagnostics import ProgressBar
 
-# from dask.distributed import Client
 import glob
 import os
 import shutil
@@ -17,10 +14,10 @@ import sys
 import re
 import time
 from datetime import date, timedelta, datetime
-import logging
-from src.comtrade_file import ComtradeFile, ComtradeFiles
-from src.configure_downloader import ComtradeConfig
-from src.downloader import BaseDownloader
+from src.download.comtrade_file import ComtradeFile, ComtradeFiles
+from src.download.configure_downloader import ComtradeConfig
+from src.download.downloader import BaseDownloader
+from config.constants import FILTER_CONDITIONS
 from pathlib import Path
 
 
@@ -30,8 +27,24 @@ class ComtradeDownloader(object):
     def __init__(self, config: ComtradeConfig):
         self.config = config
 
-    def download_comtrade_yearly_bilateral_flows(self):
-        """ """
+    def download_comtrade_yearly_bilateral_flows(self) -> None:
+        """
+        Creates a ComtradeDownloader object and downloads comtrade data
+        for the requested years if the most recently reported data by each
+        reporter country has not already been downloaded
+
+        Downloaded data is then saved in a raw file in the gunzipped format
+        as provided by the Comtrade API
+
+        Next, the data is converted to a parquet file and saved in the
+        raw_parquet_path directory
+
+        Finally, the most recent data by each reporter country is kept and
+        the rest is moved to the archived_path directory if a previous version
+        of the data had been downloaded for the same year
+
+        A download report is then generated and saved in the download_report_path directory
+        """
         reporter_codes = []
         self.downloader = BaseDownloader.create_downloader(self.config)
         self.config.logger.info(f"Beginning downloader...")
@@ -62,23 +75,39 @@ class ComtradeDownloader(object):
             parquet_path = Path(self.config.raw_files_parquet_path / str(year))
             parquet_path.mkdir(parents=True, exist_ok=True)
 
-            # TODO only process if newly downloaded files
-
             self.downloader.process_downloaded_files(
-                year, convert=True, save_all_parquet_files=False
+                year, convert_to_parquet=True, save_all_parquet_files=False
             )
-
             relocated_files = self.keep_most_recent_published_data(year, parquet_path)
 
             downloaded_files = self.generate_download_report(
                 parquet_path, relocated_files
             )
             if not downloaded_files:
-                self.config.logger.info(f"No new files downloaded for {year}.")
                 continue
             self.config.logger.info(f"Generated download report for {year}.")
 
-    def run_compactor(self):
+    def run_compactor(self) -> None:
+        """
+        This method processes trade data by aggregating it annually and applying
+        data transformations before saving the results as parquet files
+
+        Compactor steps:
+        1. Data aggregation by year from source files
+        2. Add iso codes to dataset
+        3. Atlas data filtering (removes Not Elsewhere Specified locations)
+        4. Digit level standardization for trade classification codes
+        5. ISO country code recoding and modernization
+
+        Final output saved to aggregated_by_year directory
+
+        Raises:
+            Exception: If data processing fails for any year
+
+        Notes:
+            While memory is actively managed by deleting DFs after processing,
+            the size of data may exceed memory limits and require being run with additional memory
+        """
         self.downloader = BaseDownloader.create_downloader(self.config)
 
         self.config.logger.info(f"Starting compactor...")
@@ -86,19 +115,22 @@ class ComtradeDownloader(object):
             self.config.logger.info(f"Running compactor for {year}")
             df = self.aggregate_data_by_year(year)
             if df is None:
-                self.config.logger.info(f"No data for {year} to compact")
+                self.config.logger.warning(f"No data for {year} to compact")
                 continue
-
-            df = self.merge_iso_codes(df)
-            # integrated compactor
+            df = self.add_iso_codes(df)
             df = self.downloader.atlas_data_filter(df)
-            df = self.downloader.clean_data(df)
+            df = self.downloader.handle_digit_level(df)
+            df = self.downloader.handle_iso_codes_recoding(df)
             self.save_combined_comtrade_year(df, year)
+            del df
 
-    def get_last_download_date(self, year):
+    def get_last_download_date(self, year: int) -> datetime:
         """
-        Get information about last date raw files for the classification code
-        and year were last downloaded
+        Using the ComtradeFile object, get the last date raw files for the
+        classification code and year were last downloaded
+
+        Returns:
+            datetime: Last date the data was downloaded
         """
         year_path = Path(self.config.raw_files_path) / str(year)
         if not year_path.exists():
@@ -115,9 +147,17 @@ class ComtradeDownloader(object):
         latest_date = max(file.published_date for file in comtrade_files)
         return latest_date
 
-    def keep_most_recent_published_data(self, year, path):
-        """ """
-        # generate dictionary with reporter code key and datetimes as column values
+    def keep_most_recent_published_data(self, year: int, path: Path) -> list[Path]:
+        """
+        Generate a dictionary with reporter code key and datetimes as column values
+        and keep the most recent published data for each reporter.
+
+        If a reporter has multiple files for the same year, keep the most recent
+        file and move the rest to the archived_path directory
+
+        Returns:
+            list[Path]: List of paths to the archived files
+        """
         path_dir = os.path.dirname(path)
         files = [f for f in os.listdir(path_dir) if f.endswith(".parquet")]
         reporter_dates = {
@@ -155,23 +195,24 @@ class ComtradeDownloader(object):
                     )
         return relocated
 
-    def aggregate_data_by_year(self, year) -> pd.DataFrame():
-        """ """
-        # TODO: improve performance
+    def aggregate_data_by_year(self, year: int) -> pd.DataFrame:
+        """
+        Reads in parquet files for a given year and aggregates the data
+
+        Handles known errors in Comtrade API data or lower quality reporting data
+        that does not meet the expected quality standards or required product level
+        detail.
+
+        Returns:
+            pd.DataFrame: Aggregated data by year
+        """
         if self.config.converted_files:
             year_path = Path(self.config.converted_final_path) / str(year)
         else:
             year_path = Path(self.config.raw_files_parquet_path) / str(year)
-            
+
         if not year_path.exists():
             return pd.DataFrame()
-
-        # Get CPU count for parallel processing
-        n_cores = max(
-            int(os.environ.get("SLURM_CPUS_PER_TASK", 1)),
-            int(os.environ.get("SLURM_JOB_CPUS_PER_NODE", 1)),
-        )
-        mem = int(os.environ.get("SLURM_MEM_PER_NODE")) / 1024
 
         dfs = []
         for f in glob.glob(os.path.join(year_path, "*.parquet")):
@@ -179,47 +220,53 @@ class ComtradeDownloader(object):
                 f,
                 columns=list(self.downloader.columns.keys()),
             )
-            
-            # handle known errors
             df = self.handle_known_errors(df, f)
-            # assert values are expected
-
-            # Comtrade API returns aggregated data, need to filter to only include rolled up totals
-            df = self.handle_rolled_up_totals(df, f)
-            
+            df = self.enforce_unique_partner_product_level(df, f)
             dfs.append(df)
-        
         return pd.concat(dfs)
-    
-    def handle_rolled_up_totals(self, df, f):
+
+    def enforce_unique_partner_product_level(
+        self, df: pd.DataFrame, f: Path
+    ) -> pd.DataFrame:
         """
+        Enforces that each partner-product combination is unique in the dataset
+        by filtering out duplciated records provided by Comtrade especially if
+        additional detail was requested via the API
+
+        Starting in 2017 Comtrade began including both aggregated and not aggregated data
+        prior to this, they only provided aggregated data
+
+        Filters on the following conditions:
+        - customsCode: C00
+        - motCode: 0
+        - mosCode: 0
+        - partner2Code: 0
+        - flowCode: M, X, RM, RX
+
+        Performs error handling if the data is empty after filtering
+
+        Finally groups by reporter, partner, flow, and cmd code
+
+        Returns:
+            pd.DataFrame: Filtered data
         """
         df_temp = df.copy()
-        
-        # Define the filtering conditions
-        filter_conditions = {
-            "customsCode": "C00",
-            "motCode": "0",
-            "mosCode": "0",
-            "partner2Code": 0,
-            "flowCode": ["M", "X", "RM", "RX"]
-        }
 
         conditions = []
-        for col, value in filter_conditions.items():
+        for col, value in FILTER_CONDITIONS.items():
             if col in df.columns:
                 if isinstance(value, list):
                     conditions.append(f"{col}.isin({value})")
                 else:
                     conditions.append(f"{col} == {repr(value)}")
-        
+
         if conditions:
             query_str = " and ".join(conditions)
             try:
                 df = df.query(query_str)
             except Exception as e:
                 self.config.logger.warning(f"Error applying filters: {e}")
-        
+
         drop_cols = ["isAggregate", "customsCode", "motCode", "mosCode", "partner2Code"]
         for col in drop_cols:
             try:
@@ -227,69 +274,88 @@ class ComtradeDownloader(object):
             except KeyError:
                 continue
 
-            
         if df.empty:
             df_temp.to_parquet(
-                Path(self.config.handle_empty_files_path / f"{f.split('/')[-1]}.parquet"),
+                Path(
+                    self.config.handle_empty_files_path / f"{f.split('/')[-1]}.parquet"
+                ),
                 compression="snappy",
-                index=False)
-            self.config.logger.info(f"Error check file: {f}, returning empty after filtering")
-        
-        del df_temp                          
-        df.groupby(
-            ["reporterCode", "partnerCode", "flowCode", "cmdCode"], observed=False
-        ).agg({
-            "qty":"sum",
-            "CIFValue":"sum",
-            "FOBValue":"sum",
-            "primaryValue":"sum"}).reset_index()
-        return df
-    
-    
-    def handle_known_errors(self, df, f):
+                index=False,
+            )
+            self.config.logger.warning(
+                f"Error check file: {f}, returning empty after filtering"
+            )
+
+        del df_temp
+        return (
+            df.groupby(
+                ["reporterCode", "partnerCode", "flowCode", "cmdCode"], observed=False
+            )
+            .agg(
+                {
+                    "qty": "sum",
+                    "CIFValue": "sum",
+                    "FOBValue": "sum",
+                    "primaryValue": "sum",
+                }
+            )
+            .reset_index()
+        )
+
+    def handle_known_errors(self, df: pd.DataFrame, f: Path) -> pd.DataFrame:
         """
+        Checks and handles known errors in the data as provided by Comtrade
+
+        Logs warnings for known errors or discovered data quality issues
+
+        Returns:
+            pd.DataFrame: Data with known errors handled
         """
         string_columns = df.select_dtypes(
-                include=['object', 'string', 'category']
-            ).columns
-            
+            include=["object", "string", "category"]
+        ).columns
+
         for col in string_columns:
             df[col] = df[col].str.strip()
-        
-        # known issue, comtrade mosCode value is -1, update to 0
+
         try:
-            if '-1' in df.mosCode.unique():         
-                df['mosCode'] = df['mosCode'].astype(str)
-                df.loc[df.mosCode=='-1', 'mosCode'] = '0'
-                file_obj = ComtradeFile(f.split('/')[-1])
-                self.config.logger.info(f"handled -1 value in mosCode for {file_obj.reporter_code}, year {file_obj.year}")
+            # known issue, comtrade mosCode value is -1, update to 0
+            if "-1" in df.mosCode.unique():
+                df["mosCode"] = df["mosCode"].astype(str)
+                df.loc[df.mosCode == "-1", "mosCode"] = "0"
+                file_obj = ComtradeFile(f.split("/")[-1])
+                self.config.logger.warning(
+                    f"handled -1 value in mosCode for {file_obj.reporter_code}, year {file_obj.year}"
+                )
         except:
             pass
-        
+
         try:
             if df.cmdCode.nunique() == 1:
-                self.config.logger.info(f"Country {file_obj.reporter_code}, year {file_obj.year} only reported TOTALS, expect empty df")
+                self.config.logger.warning(
+                    f"Country {file_obj.reporter_code}, year {file_obj.year} only reported TOTALS, expect empty df"
+                )
         except:
             pass
         return df
 
+    def add_iso_codes(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Adds ISO codes to the dataset using the reporters and partners reference
+        tables from Comtrade's API
 
-    def merge_iso_codes(self, df):
-        """ """
+        Returns:
+            pd.DataFrame: Data with ISO codes added
+        """
         df["reporterCode"] = df.reporterCode.astype("int16")
         df["partnerCode"] = df.partnerCode.astype("int16")
-        df = df.merge(self.downloader.reporters, on="reporterCode", how="left").merge(
+        return df.merge(self.downloader.reporters, on="reporterCode", how="left").merge(
             self.downloader.partners, on="partnerCode", how="left"
         )
 
-        if self.config.partner_iso3_codes:
-            df = ddf[ddf.partnerISO3.isin(self.config.partner_iso3_codes)]
-
-        return df
-
-    def save_combined_comtrade_year(self, df, year):
+    def save_combined_comtrade_year(self, df: pd.DataFrame, year: int) -> None:
         """
-        Saves output
+        Saves compacted data as a parquet file within the requested classification directory
         """
         self.config.logger.info(f"Saving aggregated data file for {year}.")
         save_dir = Path(
@@ -302,7 +368,6 @@ class ComtradeDownloader(object):
             compression="snappy",
             index=False,
         )
-        del df
 
     def generate_download_report(
         self, year_path: Path, replaced_files: list[Path]
@@ -340,16 +405,3 @@ class ComtradeDownloader(object):
             pass
         df.to_csv(Path(self.config.download_report_path / file_name), index=False)
         return True
-
-    def remove_tmp_dir(self, tmp_path):
-        """ """
-        for f in glob.glob(os.path.join(tmp_path, "*.gz")):
-            try:
-                os.remove(f)
-            except OSError as e:
-                self.config.logger.info(f"Error: {f} : {e.strerror}")
-
-        try:
-            os.rmdir(tmp_path)
-        except OSError as e:
-            self.config.logger.info(f"Error: {tmp_path} : {e.strerror}")

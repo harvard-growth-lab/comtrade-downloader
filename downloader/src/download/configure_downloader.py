@@ -67,63 +67,6 @@ class ComtradeConfig:
         else:
             self.file_extension = "csv"
 
-    @property
-    def latest_path(self) -> Path:
-        return self.output_dir / "latest" / self.classification_code
-
-    @property
-    def raw_files_path(self) -> Path:
-        return self.output_dir / "raw" / self.classification_code
-
-    @property
-    def raw_files_parquet_path(self) -> Path:
-        return self.output_dir / "raw_parquet" / self.classification_code
-
-    @property
-    def intermediate_class_path(self) -> Path:
-        return self.output_dir / "intermediate_files" / self.classification_code
-
-    @property
-    def converted_final_path(self) -> Path:
-        return self.output_dir / "converted" / self.classification_code
-
-    @property
-    def archived_path(self) -> Path:
-        return self.output_dir / "archived" / self.classification_code
-
-    @property
-    def corrupted_path(self) -> Path:
-        return self.output_dir / "corrupted"
-
-    @property
-    def aggregated_by_year_stata_path(self) -> Path:
-        return self.output_dir / "aggregated_by_year" / "stata"
-
-    @property
-    def aggregated_by_year_parquet_path(self) -> Path:
-        if self.converted_files:
-            return self.output_dir / "converted_aggregated_by_year" / "parquet"
-        return self.output_dir / "aggregated_by_year" / "parquet"
-
-    @property
-    def download_report_path(self) -> Path:
-        return Path(
-            self.output_dir
-            / "atlas_download_reports"
-            # / f"download_report_{datetime.now().strftime('%Y-%m-%d')}.csv"
-        )
-
-    @property
-    def conversion_weights_path(self) -> Path:
-        return (
-            Path("/n/hausmann_lab/lab/atlas/bustos_yildirim/weights_generator/generator")
-            / "data/output/grouped_weights"
-        )
-    
-    @property
-    def handle_empty_files_path(self) -> Path:
-        return self.output_dir / "handle_empty_files"
-
     def _validate(self):
         if not self.api_key:
             raise ValueError(f"Requires an API KEY for Comtrade")
@@ -145,30 +88,46 @@ class ComtradeConfig:
 
         logger.setLevel(log_level)
         # Create handler
-        handler = logging.FileHandler(filename=f'logs/run_downloader_{log_level}_{datetime.now()}.log',
-                                     delay=False)
+        handler = logging.FileHandler(
+            filename=f"logs/run_downloader_{log_level}_{datetime.now()}.log",
+            delay=False,
+        )
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
-        
+
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         self.logger = logger
 
     def _setup_paths(self):
-        paths = [
-            self.latest_path,
-            self.raw_files_path,
-            self.archived_path,
-            self.intermediate_class_path,
-            self.corrupted_path,
-            self.aggregated_by_year_stata_path,
-            self.aggregated_by_year_parquet_path,
-            self.download_report_path,
-            self.raw_files_parquet_path,
-            self.conversion_weights_path,
-            self.converted_final_path,
-            self.handle_empty_files_path,
-        ]
-        for path in paths:
-            path.mkdir(parents=True, exist_ok=True)
+        """Initialize all paths at once"""
+        base = self.output_dir
+        classification = self.classification_code
+
+        # Paths with classification code
+        self.latest_path = base / "latest" / classification
+        self.raw_files_path = base / "raw" / classification
+        self.raw_files_parquet_path = base / "raw_parquet" / classification
+        self.intermediate_class_path = base / "intermediate_files" / classification
+        self.converted_final_path = base / "converted" / classification
+        self.archived_path = base / "archived" / classification
+
+        # Paths without classification code
+        self.corrupted_path = base / "corrupted"
+        self.aggregated_by_year_stata_path = base / "aggregated_by_year" / "stata"
+        self.aggregated_by_year_parquet_path = base / "aggregated_by_year" / "parquet"
+        self.download_report_path = base / "atlas_download_reports"
+        self.handle_empty_files_path = base / "handle_empty_files"
+
+        # Special case
+        self.conversion_weights_path = (
+            Path(__file__).parent.parent.parent / "data" / "conversion_weights"
+        )
+
+        # Create all directories
+        for attr_name in dir(self):
+            if attr_name.endswith("_path") and not attr_name.startswith("_"):
+                path = getattr(self, attr_name)
+                if isinstance(path, Path):
+                    path.mkdir(parents=True, exist_ok=True)

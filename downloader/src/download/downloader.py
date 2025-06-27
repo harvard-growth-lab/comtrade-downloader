@@ -2,14 +2,13 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 from datetime import datetime, timedelta
-from src.configure_downloader import ComtradeConfig
-from src.comtrade_file import ComtradeFile
+from src.download.configure_downloader import ComtradeConfig
+from src.download.comtrade_file import ComtradeFile
 from contextlib import contextmanager, nullcontext
 import os, sys
 import comtradeapicall
 import glob
 import pandas as pd
-import dask.dataframe as dd
 
 
 class BaseDownloader:
@@ -88,11 +87,17 @@ class BaseDownloader:
     def execute_download(self, year: int, year_path: Path, last_updated: datetime):
         pass
 
-    def atlas_data_filter(self, df: pd.DataFrame):
-        # starting in 2017 Comtrade began including both aggregated and not aggregated data
-        # prior to this, they only provided aggregated data
+    def atlas_data_filter(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Filters out Not Elsewhere Specified locations
 
-        return self._handle_digit_level(df)
+        Returns:
+            pd.DataFrame: Data with NES countries filtered out
+        """
+        if self.config.partner_iso3_codes:
+            df = df[df.partnerISO3.isin(self.config.partner_iso3_codes)]
+
+        return df[~df.partnerISO3.isin(self.NES_COUNTRIES)]
 
     def download_with_retries(
         self, year: int, year_path: Path, last_updated: datetime, num_attempts=2
@@ -124,7 +129,7 @@ class BaseDownloader:
                 attempt += 1
         self.config.logger.warning(f"reached max attempts {num_attempts}")
 
-    def clean_data(self, df):
+    def handle_iso_codes_recoding(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Adds ISOCode columns for reporter and partner countries
         """
@@ -134,15 +139,13 @@ class BaseDownloader:
         df.loc[df.partnerCode == 490, "partnerISO3"] = "TWN"
         df.loc[df.reporterCode == 490, "reporterISO3"] = "TWN"
 
-        df = df[~df.partnerISO3.isin(self.NES_COUNTRIES)]
-
         # South Africa represented in Comtrade as ZA1 and ZAF
         df.loc[df.reporterISO3 == "ZA1", "reporterISO3"] = "ZAF"
         df.loc[df.partnerISO3 == "ZA1", "partnerISO3"] = "ZAF"
         return df.drop(columns=["reporterCode", "partnerCode"])
 
     def process_downloaded_files(
-        self, year, convert=False, save_all_parquet_files=False
+        self, year, convert_to_parquet=False, save_all_parquet_files=False
     ):
         """
         Validate Data files and Convert files to Parquet
@@ -179,7 +182,7 @@ class BaseDownloader:
         if corrupted_files:
             self.handle_corrupt_files(year, corrupted_files)
         for f in glob.glob(os.path.join(year_path, "*.gz")):
-            if convert:
+            if convert_to_parquet:
                 file_name = f.split("/")[-1].split(".")[0]
                 if file_name not in parquet_files or save_all_parquet_files:
                     df = pd.read_csv(
@@ -267,7 +270,7 @@ class BaseDownloader:
                 os.remove(Path(self.config.corrupted_path / ComtradeFile(f).name))
             shutil.move(f, Path(self.config.corrupted_path / ComtradeFile(f).name))
 
-    def _handle_digit_level(self, df: pd.DataFrame):
+    def handle_digit_level(self, df: pd.DataFrame) -> pd.DataFrame:
         # create product digitlevel column based on commodity code
         df = df.assign(digitLevel=df["cmdCode"].str.len())
         # zero digit value replaces the word TOTAL
