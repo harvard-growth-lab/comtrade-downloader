@@ -24,25 +24,25 @@ def run():
         if not enabled:
             continue
         if RUN_WEIGHTED_CONVERSION:
-            # logging.info(
-            #     f"Downloading classifications as reported by country from {CLASSIFICATION_RELEASE_YEARS[requested_classification]} to {END_YEAR if END_YEAR is not None else datetime.now().year - 1}"
-            # )
-            # for classification in CLASSIFICATION_RELEASE_YEARS.keys():
-            #     logging.info(
-            #         f"Downloading any country reported files for {classification} starting in {CLASSIFICATION_RELEASE_YEARS[classification]}"
-            #     )
-            #     if (
-            #         END_YEAR is not None
-            #         and CLASSIFICATION_RELEASE_YEARS[requested_classification]
-            #         > END_YEAR
-            #     ):
-            #         continue
-            #     config = build_config_for_classification(
-            #         classification,
-            #         CLASSIFICATION_RELEASE_YEARS[requested_classification],
-            #     )
-            #     downloader = ComtradeDownloader(config)
-            #     downloader.download_comtrade_yearly_bilateral_flows()
+            logging.info(
+                f"Downloading classifications as reported by country from {CLASSIFICATION_RELEASE_YEARS[requested_classification]} to {END_YEAR if END_YEAR is not None else datetime.now().year - 1}"
+            )
+            for classification in CLASSIFICATION_RELEASE_YEARS.keys():
+                logging.info(
+                    f"Downloading any country reported files for {classification} starting in {CLASSIFICATION_RELEASE_YEARS[classification]}"
+                )
+                if (
+                    END_YEAR is not None
+                    and CLASSIFICATION_RELEASE_YEARS[requested_classification]
+                    > END_YEAR
+                ):
+                    continue
+                config = build_config_for_classification(
+                    classification,
+                    CLASSIFICATION_RELEASE_YEARS[requested_classification],
+                )
+                downloader = ComtradeDownloader(config)
+                downloader.download_comtrade_yearly_bilateral_flows()
             target_classification_config = build_config_for_classification(
                 requested_classification,
                 CLASSIFICATION_RELEASE_YEARS[requested_classification],
