@@ -4,7 +4,8 @@ from datetime import datetime
 
 
 class ComtradeFile:
-    """Parses and stores Comtrade file metadata."""
+    """File object for data files downloaded from Comtrade to extract metadata
+    from filename as given by Comtrade API"""
 
     def __init__(self, file_path):
         self.file_path = Path(file_path)
@@ -12,6 +13,17 @@ class ComtradeFile:
         self._parse_filename()
 
     def _parse_filename(self) -> None:
+        """
+        Parses the filename with two patterns based on download type and
+        extracts the metadata from the filename
+
+        Metadata:
+        - reporter_code: as given by Comtrade; https://comtradeplus.un.org/ListOfReferences
+        - year: relevant year of data
+        - classification: 2 digit classification code
+        - published_date: date the data was published
+        """
+
         patterns = [
             r"COMTRADE-FINALCLASSIC-CA(?P<reporter>\d{3})(?P<year>\d{4})(?P<classification>\w+)\[(?P<date>[\d-]+)\]",
             r"COMTRADE-FINAL-CA(?P<reporter>\d{3})(?P<year>\d{4})(?P<classification>\w+)\[(?P<date>[\d-]+)\]",
@@ -26,21 +38,15 @@ class ComtradeFile:
                 self.classification = match.group("classification")
                 self.published_date = datetime.strptime(match.group("date"), "%Y-%m-%d")
                 return
-        raise ValueError(f"File format has not been handled: {self.name}")
+        raise ValueError(f"File format not recognized: {self.name}")
 
-    def swap_classification(self, new_classification):
+    def swap_classification(self, new_classification: str) -> None:
         """
-        Swap the classification in the filename and update the object's properties.
+        Swap the classification in the filename and update the object's classification
+        name and file_path
 
-        Parameters:
-        -----------
         new_classification : str
             The new classification code to use (e.g., 'H0', 'H1', 'S3', etc.)
-
-        Returns:
-        --------
-        ComtradeFile
-            Returns self for method chaining
         """
         old_filename = self.name
 
@@ -64,7 +70,13 @@ class ComtradeFiles:
     def __init__(self, files):
         self.files = files
 
-    def get_file_names(self, reporter_code, dates) -> list:
+    def get_file_names(self, reporter_code: str, dates: list[datetime]) -> list:
+        """
+        Get the file names for a given reporter code and dates
+
+        Returns:
+            list: List of file names
+        """
         files = set()
         for f in self.files:
             for date in dates:

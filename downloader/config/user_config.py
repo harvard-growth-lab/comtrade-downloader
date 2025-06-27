@@ -40,7 +40,7 @@ if not API_KEY:
 
 # Base directory for all downloaded data
 # Adjust this path to your preferred data storage location
-OUTPUT_BASE_DIR = "/path/to/your/data/directory"
+OUTPUT_BASE_DIR = "/home/parallels/Desktop/Parallels Shared Folders/AllFiles/Users/ELJ479/projects/data_downloads/comtrade/"
 
 # Create output directory if it doesn't exist
 Path(OUTPUT_BASE_DIR).mkdir(parents=True, exist_ok=True)
@@ -52,8 +52,11 @@ Path(OUTPUT_BASE_DIR).mkdir(parents=True, exist_ok=True)
 # Set boolean to True for classifications you want to download
 ENABLED_CLASSIFICATIONS = {
     "H0": False,
-    "H4": True,
-    "H5": False,
+    "H1": False,
+    "H2": False,
+    "H3": False,
+    "H4": False,
+    "H5": True,
     "H6": False,
     "S1": False,
     "S2": False,
@@ -61,26 +64,19 @@ ENABLED_CLASSIFICATIONS = {
     "S4": False,
 }
 
-# Requested classifications and year to start downloading from
-# Format: {classification_code: start_year}
-CLASSIFICATION_CONFIGS = {
-    # Harmonized System (HS) Classifications
-    "H0": 1988,  # HS Combined (1988-present)
-    "H1": 1996,  # HS 1992 vintage (1996-present)
-    "H2": 2002,  # HS 2002 vintage (2002-present)
-    "H3": 2007,  # HS 2007 vintage (2007-present)
-    "H4": 2012,  # HS 2012 vintage (2012-present)
-    "H5": 2017,  # HS 2017 vintage (2017-present)
-    "H6": 2022,  # HS 2022 vintage (2022-present)
-    # Standard International Trade Classification (SITC)
-    "S1": 1962,  # SITC Revision 1 (1962-present)
-    "S2": 1976,  # SITC Revision 2 (1976-present)
-    "S3": 1988,  # SITC Revision 3 (1988-present)
-    "S4": 2007,  # SITC Revision 4 (2007-present)
-}
 
 # Year range configuration
 END_YEAR = None  # Will default to datetime.now().year - 1
+
+# =============================================================================
+# PROCESSING STEPS
+# =============================================================================
+
+PROCESSING_STEPS = {
+    "run_downloader": True,  # Download bilateral trade reporter files
+    "run_converter": True,  # Convert files to desired classification
+    "run_compactor": True,  # Aggregate reporter files by classificaiton by year
+}
 
 # =============================================================================
 # COMTRADE DATA REQUEST PARAMETERS (advanced users only)
@@ -114,9 +110,7 @@ DROP_WORLD_PARTNER = False
 DROP_SECONDARY_PARTNERS = True
 
 # Download type - determines data download type as provided by Comtrade
-# "classic" = as-reported data (original country classifications)
-# "final" = standardized data (converted to specific classification)
-DOWNLOAD_TYPE = "classic"
+RUN_WEIGHTED_CONVERSION = True
 
 # =============================================================================
 # PROCESSING OPTIONS
@@ -155,6 +149,20 @@ def get_end_year():
     return datetime.now().year - 1
 
 
+def get_download_type(run_weights: bool) -> str:
+    """
+    Determine download type based on whether weights are being run
+
+    Two options:
+     "classic" = as-reported data (original country classifications)
+     "final" = standardized data (converted to specific classification)
+
+    """
+    if run_weights:
+        return "classic"
+    return "final"
+
+
 def build_config_for_classification(classification_code, start_year):
     """Build ComtradeConfig object for a one classification."""
     from src.download.configure_downloader import ComtradeConfig
@@ -162,7 +170,7 @@ def build_config_for_classification(classification_code, start_year):
     return ComtradeConfig(
         api_key=API_KEY,
         output_dir=OUTPUT_BASE_DIR,
-        download_type=DOWNLOAD_TYPE,
+        download_type=get_download_type(RUN_WEIGHTED_CONVERSION),
         product_classification=classification_code,
         log_level=LOG_LEVEL,
         start_year=start_year,
