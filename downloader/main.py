@@ -1,8 +1,8 @@
-from config.user_config import build_config_for_classification
-from config.user_config import ENABLED_CLASSIFICATIONS
-from config.constants import CLASSIFICATION_RELEASE_YEARS
-from config.user_config import RUN_WEIGHTED_CONVERSION
-from config.user_config import END_YEAR
+from user_config import build_config_for_classification
+from user_config import ENABLED_CLASSIFICATIONS
+from data.static.constants import CLASSIFICATION_RELEASE_YEARS, CONVERSION_LINKS
+from user_config import RUN_WEIGHTED_CONVERSION
+from user_config import END_YEAR
 from src.download.api_downloader import ComtradeDownloader
 from src.download.converter import ClassificationConverter
 from datetime import datetime
@@ -27,7 +27,8 @@ def run():
             logging.info(
                 f"Downloading classifications as reported by country from {CLASSIFICATION_RELEASE_YEARS[requested_classification]} to {END_YEAR if END_YEAR is not None else datetime.now().year - 1}"
             )
-            for classification in CLASSIFICATION_RELEASE_YEARS.keys():
+            # need as reported data for all subsequent classifications
+            for classification in CONVERSION_LINKS:
                 logging.info(
                     f"Downloading any country reported files for {classification} starting in {CLASSIFICATION_RELEASE_YEARS[classification]}"
                 )
@@ -43,6 +44,7 @@ def run():
                 )
                 downloader = ComtradeDownloader(config)
                 downloader.download_comtrade_yearly_bilateral_flows()
+
             target_classification_config = build_config_for_classification(
                 requested_classification,
                 CLASSIFICATION_RELEASE_YEARS[requested_classification],
