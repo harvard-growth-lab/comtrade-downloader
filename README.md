@@ -114,6 +114,7 @@ END_YEAR = 2023
 Apache License, Version 2.0 - see LICENSE file.
 
 ## Citation
+[![DOI](https://zenodo.org/badge/734071396.svg)](https://doi.org/10.5281/zenodo.16052441)
 
 ```bibtex
 @Misc{comtrade-downloader,
