@@ -17,6 +17,7 @@ Download and archive country reported trade data from UN Comtrade in SITC & HS c
 git clone https://github.com/harvard-growth-lab/comtrade-downloader.git
 cd comtrade-downloader
 poetry install && poetry shell
+cd downloader
 
 # Load Comtrade API key
 export COMTRADE_API_KEY="your_key_here"
