@@ -33,7 +33,7 @@ if not API_KEY:
 # Base directory for all downloaded data
 # Adjust this path to your preferred data storage location
 
-OUTPUT_BASE_DIR = "/n/hausmann_lab/lab/atlas/test/data"
+OUTPUT_BASE_DIR = "/path/to/output/data"
 
 # Create output directory if it doesn't exist
 Path(OUTPUT_BASE_DIR).mkdir(parents=True, exist_ok=True)
@@ -44,13 +44,13 @@ Path(OUTPUT_BASE_DIR).mkdir(parents=True, exist_ok=True)
 
 # Set boolean to True for classifications you want to download
 ENABLED_CLASSIFICATIONS = {
-    "H0": False,
+    "H0": True,
     "H1": False,
     "H2": False,
     "H3": False,
     "H4": False,
     "H5": False,
-    "H6": True,
+    "H6": False,
     "S1": False,
     "S2": False,
     "S3": False,
@@ -58,7 +58,7 @@ ENABLED_CLASSIFICATIONS = {
 
 
 # Year range configuration
-END_YEAR = 2022  # Will default to datetime.now().year - 1
+END_YEAR = 2023  # Will default to datetime.now().year - 1
 
 # =============================================================================
 # PROCESSING STEPS
