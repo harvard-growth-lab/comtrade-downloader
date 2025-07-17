@@ -31,7 +31,6 @@ class ClassificationConverter(object):
         "S1": 1962,
         "S2": 1976,
         "S3": 1988,
-        # "S4": 2007,
         "H0": 1988,
         "H1": 1996,
         "H2": 2002,
@@ -89,7 +88,7 @@ class ClassificationConverter(object):
             self.run_conversion(weight, source_class)
             del weight
 
-    def run_conversion(self, weight, source_class):
+    def run_conversion(self, weight: pd.DataFrame, source_class: str) -> None:
         """Run conversion in specified direction for given years"""
         self.config.logger.info(
             f"Beginning conversion for {source_class} to {self.target_class}..."
@@ -98,13 +97,11 @@ class ClassificationConverter(object):
             self.config.logger.info(f"for {as_reported_year}...")
 
             # Find all files in source classification for conversion
-            # self.config.classification_code = source_class
             raw_parquet_path = Path(
                 self.config.raw_files_parquet_path.parent
                 / source_class
                 / str(as_reported_year)
             )
-            # raw_parquet_path = Path(self.config.raw_files_parquet_path) / str(as_reported_year)
             as_reported_files = list(raw_parquet_path.glob("*.parquet"))
 
             # Process each file
@@ -129,7 +126,9 @@ class ClassificationConverter(object):
                 self.save_converted_data(as_reported_year, file_obj, result)
                 del result
 
-    def convert_file(self, file, weight, source_class):
+    def convert_file(
+        self, file: Path, weight: pd.DataFrame, source_class: str
+    ) -> pd.DataFrame:
         """Convert a single reporter file from source to next classification"""
 
         as_reported_trade = pd.read_parquet(file)
@@ -225,7 +224,7 @@ class ClassificationConverter(object):
             return converted_df
         return converted_df
 
-    def apply_weights(self, source_class):
+    def apply_weights(self, source_class: str) -> pd.DataFrame:
         """
         Generate weight table
 
@@ -256,7 +255,7 @@ class ClassificationConverter(object):
         weights = pd.read_csv(
             self.config.conversion_weights_path
             / f"conversion_weights_{next_class}_to_{self.target_class}.csv"
-        )  # , dtype={next_class: str, self.target_class: str})
+        )
         weights = self.handle_product_code_string(weights, next_class)
         weights = self.handle_product_code_string(weights, self.target_class)
         weights = weights[weights.weight != 0]
@@ -270,9 +269,7 @@ class ClassificationConverter(object):
             next_class_weights = pd.read_csv(
                 self.config.conversion_weights_path
                 / f"conversion_weights_{seq_class}_to_{next_class}.csv"
-            )  # ,
-            # dtype={seq_class: str, next_class: str}
-            # )
+            )
             next_class_weights = self.handle_product_code_string(
                 next_class_weights, seq_class
             )
@@ -294,9 +291,9 @@ class ClassificationConverter(object):
 
             weights = weights.drop(
                 columns=[
-                    # f"weight_{seq_class}_{next_class}",
+                    f"weight_{seq_class}_{next_class}",
                     next_class,
-                    # f"weight_{next_class}_{self.target_class}",
+                    f"weight_{next_class}_{self.target_class}",
                 ]
             )
             counter += 1
@@ -327,14 +324,11 @@ class ClassificationConverter(object):
             f"Not all weight sums are within 0.01 of 1. Found: {weights_sum[abs(weights_sum - 1.0) >= 0.01]}"
         )
         del weights_sum
-        weights.to_csv(
-            self.config.intermediate_data_path
-            / f"weights_chained_{source_class}_{self.target_class}.csv",
-            index=False,
-        )
         return weights
 
-    def handle_product_code_string(self, df, classification):
+    def handle_product_code_string(
+        self, df: pd.DataFrame, classification: str
+    ) -> pd.DataFrame:
         if classification.startswith("H"):
             detailed_product_level = 6
         else:
@@ -354,7 +348,7 @@ class ClassificationConverter(object):
         )
         return df
 
-    def handle_as_reported(self, classification):
+    def handle_as_reported(self, classification: str) -> None:
         """
         trade data reported in the classification is copied to converted folder
         """
@@ -376,7 +370,7 @@ class ClassificationConverter(object):
                 self.config.logger.debug(f"destination {destination_file}")
                 shutil.copy2(file, destination_file)
 
-    def add_product_levels(self, df):
+    def add_product_levels(self, df: pd.DataFrame) -> pd.DataFrame:
         agg_levels = [
             ("TOTAL", lambda x: ""),  # Country total
             ("2digit", lambda x: x[:2]),  # 2-digit
@@ -426,13 +420,13 @@ class ClassificationConverter(object):
         results.append(df[group_cols + ["cmdCode", "level"] + value_cols])
         return pd.concat(results, ignore_index=True)
 
-    def save_converted_data(self, year, file_obj, result):
-        """Save converted data to intermediate and final locations"""
-        # self.config.classification_code = self.target_class
+    def save_converted_data(
+        self, year: int, file_obj: ComtradeFile, result: pd.DataFrame
+    ) -> None:
+        """Save converted data to final locations"""
         final_path = Path(
             self.config.converted_final_path.parent / self.target_class / str(year)
         )
-        # final_path = Path(f"{self.config.converted_final_path}/{year}")
         final_path.mkdir(parents=True, exist_ok=True)
 
         final_file = f"{final_path}/{file_obj.name}"

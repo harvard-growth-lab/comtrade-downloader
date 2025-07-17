@@ -49,8 +49,7 @@ END_YEAR = None  # Defaults to current year - 1
 # Processing Steps
 ```
 PROCESSING_STEPS = {
-    "run_downloader": True,  # Download data
-    "run_converter": True,   # Convert between classifications
+    "run_downloader": True,  # Download data & convert to desired classification
     "run_compactor": True,   # Aggregate data by year
 }
 ```
@@ -69,25 +68,21 @@ PROCESSING_STEPS = {
 - **S1**: SITC Revision 1 (1962-present)
 - **S2**: SITC Revision 2 (1976-present)
 - **S3**: SITC Revision 3 (1988-present)
-- **S4**: SITC Revision 4 (2007-present)
 
 
 ## How It Works
 
 ### 1. Data Download
-- Downloads bilateral trade data from UN Comtrade API
-- Supports both "classic" (as-reported) and "final" (converted by Comtrade) data
+- Downloads bilateral trade data in original classification from UN Comtrade API
+- Converts to requested classification
 - Handles incremental updates to avoid re-downloading existing data
 
-### 2. Data Conversion (Optional)
-- Converts data between different classification systems
-- Uses weighted conversion tables for accurate mapping
-- Supports complex many-to-many product relationships
+### 2. Data Conversion
+- Converts data to requested classification
+- Uses weighted conversion tables
 
-### 3. Data Aggregation
-- Combines individual country files into annual datasets
-- Applies data quality filters and corrections
-- Outputs bilateral files
+### 3. Compactor Data Aggregation
+- Combines individual country files into an aggregated dataset for each year
 
 ## Output Structure
 

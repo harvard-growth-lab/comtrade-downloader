@@ -54,17 +54,16 @@ Path(OUTPUT_BASE_DIR).mkdir(parents=True, exist_ok=True)
 
 # Set boolean to True for classifications you want to download
 ENABLED_CLASSIFICATIONS = {
-    "H0": True,
+    "H0": False,
     "H1": False,
     "H2": False,
     "H3": False,
     "H4": False,
     "H5": False,
-    "H6": False,
+    "H6": True,
     "S1": False,
     "S2": False,
     "S3": False,
-    "S4": False,
 }
 
 
@@ -76,8 +75,7 @@ END_YEAR = 2023  # Will default to datetime.now().year - 1
 # =============================================================================
 
 PROCESSING_STEPS = {
-    "run_downloader": False,  # Download bilateral trade reporter files
-    "run_converter": False,  # Convert files to desired classification
+    "run_downloader": False,  # Download trade data and convert to requested classification
     "run_compactor": True,  # Aggregate reporter files by classificaiton by year
 }
 
