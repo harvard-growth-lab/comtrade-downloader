@@ -311,7 +311,7 @@ class ClassicDownloader(BaseDownloader):
     def execute_download(self, year: int, last_updated, reporter_code):
         params = {
             "subscription_key": self.config.api_key,
-            "directory": self.year_path,
+            "directory": str(self.year_path),
             "typeCode": "C",
             "freqCode": "A",
             "clCode": self.config.classification_code,

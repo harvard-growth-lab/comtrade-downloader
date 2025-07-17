@@ -17,7 +17,7 @@ from datetime import date, timedelta, datetime
 from src.download.comtrade_file import ComtradeFile, ComtradeFiles
 from src.download.configure_downloader import ComtradeConfig
 from src.download.downloader import BaseDownloader
-from config.constants import FILTER_CONDITIONS
+from data.static.constants import FILTER_CONDITIONS
 from pathlib import Path
 
 

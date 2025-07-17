@@ -40,9 +40,10 @@ if not API_KEY:
 
 # Base directory for all downloaded data
 # Adjust this path to your preferred data storage location
-# OUTPUT_BASE_DIR = "/home/parallels/Desktop/Parallels Shared Folders/AllFiles/Users/ELJ479/projects/data_downloads/comtrade/"
-OUTPUT_BASE_DIR = "/n/hausmann_lab/lab/atlas/data"
 
+# OUTPUT_BASE_DIR = "/home/parallels/Desktop/Parallels Shared Folders/AllFiles/Users/ELJ479/projects/data_downloads/comtrade/"
+# OUTPUT_BASE_DIR = "/n/hausmann_lab/lab/atlas/data"
+OUTPUT_BASE_DIR = "/home/parallels/Desktop/Parallels Shared Folders/AllFiles/Users/ELJ479/projects/data_downloads/comtrade_test/"
 
 # Create output directory if it doesn't exist
 Path(OUTPUT_BASE_DIR).mkdir(parents=True, exist_ok=True)
@@ -139,7 +140,7 @@ def get_enabled_classifications():
     """Return list of enabled classifications with their start years."""
     return {
         code: start_year
-        for code, start_year in CLASSIFICATION_CONFIGS.items()
+        for code, start_year in ENABLED_CLASSIFICATIONS.items()
         if ENABLED_CLASSIFICATIONS.get(code, False)
     }
 

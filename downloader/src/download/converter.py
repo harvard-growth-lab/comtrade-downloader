@@ -255,7 +255,7 @@ class ClassificationConverter(object):
 
         weights = pd.read_csv(
             self.config.conversion_weights_path
-            / f"grouped_{next_class}:{self.target_class}.csv"
+            / f"conversion_weights_{next_class}_to_{self.target_class}.csv"
         )  # , dtype={next_class: str, self.target_class: str})
         weights = self.handle_product_code_string(weights, next_class)
         weights = self.handle_product_code_string(weights, self.target_class)
@@ -269,7 +269,7 @@ class ClassificationConverter(object):
         for seq_class in conversion_link:
             next_class_weights = pd.read_csv(
                 self.config.conversion_weights_path
-                / f"grouped_{seq_class}:{next_class}.csv"
+                / f"conversion_weights_{seq_class}_to_{next_class}.csv"
             )  # ,
             # dtype={seq_class: str, next_class: str}
             # )
