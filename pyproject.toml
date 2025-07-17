@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "downloader"
+version = "0.1.0"
+description = ""
+authors = ["Harvard Growth Lab"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+comtradeapicall = "^1.2.1"
+urllib3 = "^2.2.3"
+requests = "^2.32.3"
+numpy = "^2.1.3"
+pandas = "^2.2.3"
+pyarrow = "^18.1.0"
+regex = "^2024.11.6"
+dask = {extras = ["distributed"], version = "^2024.12.0"}
+distributed = "^2024.12.0"
+dask-expr = "^1.1.20"
+ipython = "^8.0.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
