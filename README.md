@@ -10,6 +10,7 @@ Download and archive country reported trade data from UN Comtrade in SITC & HS c
 - Python 3.10 or higher
 - [Poetry](https://python-poetry.org/docs/) for managing dependencies
 - Premium UN Comtrade API key ([get one here](https://comtradeplus.un.org/))
+- Sufficient disk space (classification requested dependent, requires up to 60GB memory)
 
 ## Installation
 

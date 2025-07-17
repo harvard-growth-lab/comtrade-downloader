@@ -40,6 +40,7 @@ def run():
                 )
                 # need as reported data for all classifications
                 for classification in CONVERSION_LINKS:
+
                     logging.info(
                         f"Downloading any country reported files for {classification} starting in {CLASSIFICATION_RELEASE_YEARS[classification]}"
                     )
@@ -54,12 +55,8 @@ def run():
                         CLASSIFICATION_RELEASE_YEARS[requested_classification],
                     )
                     downloader = ComtradeDownloader(config)
-                    # downloader.download_comtrade_yearly_bilateral_flows()
+                    downloader.download_comtrade_yearly_bilateral_flows()
 
-                # target_classification_config = build_config_for_classification(
-                #     requested_classification,
-                #     CLASSIFICATION_RELEASE_YEARS[requested_classification],
-                # )
                 logging.info(
                     f"Beginning conversion for classification as reported by country to {requested_classification}"
                 )
@@ -72,10 +69,6 @@ def run():
                 )
 
             else:
-                # target_classification_config = build_config_for_classification(
-                #     requested_classification,
-                #     CLASSIFICATION_RELEASE_YEARS[requested_classification],
-                # )
                 downloader = ComtradeDownloader(target_classification_config)
                 downloader.download_comtrade_yearly_bilateral_flows()
 
@@ -85,7 +78,7 @@ def run():
                 "Initating compactor, aggregating data by year in the requested classification"
             )
             downloader.run_compactor()
-            print(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
+            logging.info(f"program complete {datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 
 
 if __name__ == "__main__":

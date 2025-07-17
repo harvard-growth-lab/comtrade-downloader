@@ -2,14 +2,6 @@
 Comtrade Downloader Configuration File
 =====================================
 
-This configuration file provides a user-friendly interface for downloading
-
-Before running, ensure you have:
-1. A valid UN Comtrade API key
-2. Sufficient disk space (datasets can be several GB per year)
-3. Stable internet connection for large downloads
-
-For API key registration: https://comtradeplus.un.org/
 """
 
 import os
@@ -41,9 +33,7 @@ if not API_KEY:
 # Base directory for all downloaded data
 # Adjust this path to your preferred data storage location
 
-# OUTPUT_BASE_DIR = "/home/parallels/Desktop/Parallels Shared Folders/AllFiles/Users/ELJ479/projects/data_downloads/comtrade/"
-# OUTPUT_BASE_DIR = "/n/hausmann_lab/lab/atlas/data"
-OUTPUT_BASE_DIR = "/home/parallels/Desktop/Parallels Shared Folders/AllFiles/Users/ELJ479/projects/data_downloads/comtrade_test/"
+OUTPUT_BASE_DIR = "/n/hausmann_lab/lab/atlas/test/data"
 
 # Create output directory if it doesn't exist
 Path(OUTPUT_BASE_DIR).mkdir(parents=True, exist_ok=True)
@@ -68,24 +58,32 @@ ENABLED_CLASSIFICATIONS = {
 
 
 # Year range configuration
-END_YEAR = 2023  # Will default to datetime.now().year - 1
+END_YEAR = 2022  # Will default to datetime.now().year - 1
 
 # =============================================================================
 # PROCESSING STEPS
 # =============================================================================
 
 PROCESSING_STEPS = {
-    "run_downloader": False,  # Download trade data and convert to requested classification
+    "run_downloader": True,  # Download trade data and convert to requested classification
     "run_compactor": True,  # Aggregate reporter files by classificaiton by year
 }
+
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+
+LOG_LEVEL = "DEBUG"
+SUPPRESS_PRINT = False
+
 
 # =============================================================================
 # COMTRADE DATA REQUEST PARAMETERS (advanced users only)
 # =============================================================================
 
 """
-WARNING: Changing these parameters is not recommended and will produce unexpected 
-product conversion and mirroring results
+WARNING: Changing these parameters is not recommended
 """
 
 # Reporter countries (empty list for all countries)
@@ -113,8 +111,9 @@ DROP_SECONDARY_PARTNERS = True
 # Download type - determines data download type as provided by Comtrade
 RUN_WEIGHTED_CONVERSION = True
 
+
 # =============================================================================
-# PROCESSING OPTIONS
+# PROCESSING OPTIONS  (advanced users only)
 # =============================================================================
 
 # File management
@@ -122,12 +121,6 @@ DELETE_TEMP_FILES = False  # Keep temporary download files
 COMPRESS_OUTPUT = True  # Compress final output files
 CONVERT_TO_PROCESSED_FILES = True  # Apply classification conversions
 
-# =============================================================================
-# LOGGING
-# =============================================================================
-
-LOG_LEVEL = "INFO"
-SUPPRESS_PRINT = False
 
 # =============================================================================
 # RUNTIME CONFIGURATION BUILDER

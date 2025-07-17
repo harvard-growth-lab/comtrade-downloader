@@ -50,6 +50,7 @@ class ComtradeDownloader(object):
         self.config.logger.info(f"Beginning downloader...")
         for year in self.config.years:
             year_path = Path(self.config.raw_files_path / str(year))
+            year_path.mkdir(parents=True, exist_ok=True)
 
             last_updated = self.get_last_download_date(year)
             if (

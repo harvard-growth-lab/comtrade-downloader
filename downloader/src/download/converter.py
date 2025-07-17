@@ -58,7 +58,6 @@ class ClassificationConverter(object):
         self.target_class = target_class
         self.downloader = ComtradeDownloader(config)
 
-    # clear out as_converted data
 
     def run(self) -> None:
         """
@@ -362,9 +361,9 @@ class ClassificationConverter(object):
 
             destination_path.mkdir(parents=True, exist_ok=True)
             cleanup_files_from_dir(destination_path)
-
+            
             for file in original_paths:
-                filename = str(file).split("/")[-1]
+                filename = str(file.name)
                 destination_file = os.path.join(destination_path, filename)
                 self.config.logger.debug(f"original paths {file}")
                 self.config.logger.debug(f"destination {destination_file}")
@@ -428,7 +427,7 @@ class ClassificationConverter(object):
             self.config.converted_final_path.parent / self.target_class / str(year)
         )
         final_path.mkdir(parents=True, exist_ok=True)
-
+        
         final_file = f"{final_path}/{file_obj.name}"
         result.to_parquet(final_file, index=False)
         self.config.logger.debug(f"Saved to final file: {final_file}")
