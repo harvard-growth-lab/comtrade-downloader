@@ -7,7 +7,9 @@ CLASSIFICATION_RELEASE_YEARS = {
     "S3": 1988,  # SITC Revision 3 (1988-present)
     "S4": 2007,  # SITC Revision 4 (2007-present)
     # Harmonized System (HS) Classifications
-    "H0": 1988,  # HS Combined (1988-present)
+    # "H0": 1992,  # HS Combined (1988-present)
+    "H0": 2019,  # HS Combined (1988-present)
+
     "H1": 1996,  # HS 1992 vintage (1996-present)
     "H2": 2002,  # HS 2002 vintage (2002-present)
     "H3": 2007,  # HS 2007 vintage (2007-present)

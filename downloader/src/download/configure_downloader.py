@@ -56,7 +56,7 @@ class ComtradeConfig:
         self.delete_tmp_files = delete_tmp_files or False
         self.compress_output = compress_output or True
         self.suppress_print = suppress_print or True
-        self.converted_files = converted_files or False
+        self.converted_files = converted_files or True
 
         self._validate()
         self._setup_paths()

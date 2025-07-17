@@ -40,7 +40,9 @@ if not API_KEY:
 
 # Base directory for all downloaded data
 # Adjust this path to your preferred data storage location
-OUTPUT_BASE_DIR = "/home/parallels/Desktop/Parallels Shared Folders/AllFiles/Users/ELJ479/projects/data_downloads/comtrade/"
+# OUTPUT_BASE_DIR = "/home/parallels/Desktop/Parallels Shared Folders/AllFiles/Users/ELJ479/projects/data_downloads/comtrade/"
+OUTPUT_BASE_DIR = "/n/hausmann_lab/lab/atlas/data"
+
 
 # Create output directory if it doesn't exist
 Path(OUTPUT_BASE_DIR).mkdir(parents=True, exist_ok=True)
@@ -51,12 +53,12 @@ Path(OUTPUT_BASE_DIR).mkdir(parents=True, exist_ok=True)
 
 # Set boolean to True for classifications you want to download
 ENABLED_CLASSIFICATIONS = {
-    "H0": False,
+    "H0": True,
     "H1": False,
     "H2": False,
     "H3": False,
     "H4": False,
-    "H5": True,
+    "H5": False,
     "H6": False,
     "S1": False,
     "S2": False,
@@ -66,15 +68,15 @@ ENABLED_CLASSIFICATIONS = {
 
 
 # Year range configuration
-END_YEAR = None  # Will default to datetime.now().year - 1
+END_YEAR = 2023  # Will default to datetime.now().year - 1
 
 # =============================================================================
 # PROCESSING STEPS
 # =============================================================================
 
 PROCESSING_STEPS = {
-    "run_downloader": True,  # Download bilateral trade reporter files
-    "run_converter": True,  # Convert files to desired classification
+    "run_downloader": False,  # Download bilateral trade reporter files
+    "run_converter": False,  # Convert files to desired classification
     "run_compactor": True,  # Aggregate reporter files by classificaiton by year
 }
 
@@ -119,7 +121,7 @@ RUN_WEIGHTED_CONVERSION = True
 # File management
 DELETE_TEMP_FILES = False  # Keep temporary download files
 COMPRESS_OUTPUT = True  # Compress final output files
-CONVERT_TO_PROCESSED_FILES = False  # Apply classification conversions
+CONVERT_TO_PROCESSED_FILES = True  # Apply classification conversions
 
 # =============================================================================
 # LOGGING

@@ -277,7 +277,7 @@ class ComtradeDownloader(object):
         if df.empty:
             df_temp.to_parquet(
                 Path(
-                    self.config.handle_empty_files_path / f"{f.split('/')[-1]}.parquet"
+                    self.config.handle_empty_files_path / f.name
                 ),
                 compression="snappy",
                 index=False,
