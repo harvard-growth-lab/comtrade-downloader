@@ -9,6 +9,8 @@ import os, sys
 import comtradeapicall
 import glob
 import pandas as pd
+import shutil
+import time
 
 
 class BaseDownloader:
@@ -166,7 +168,6 @@ class BaseDownloader:
                     compression="gzip",
                     usecols=list(self.columns.keys()),
                     dtype=self.columns,
-                    # nrows=1,
                 )
                 del df
 
