@@ -38,7 +38,7 @@ if not API_KEY:
 # Base directory for all downloaded data
 # Adjust this path to your preferred data storage location
 
-OUTPUT_BASE_DIR = "/path/to/output/data"
+OUTPUT_BASE_DIR = "/n/hausmann_lab/lab/atlas/data/"
 
 # =============================================================================
 # REQUESTED CLASSIFICATIONS AND YEAR RANGE
@@ -48,7 +48,7 @@ OUTPUT_BASE_DIR = "/path/to/output/data"
 PROCESS_HS92 = False  # HS92 data from 1992-END_YEAR
 PROCESS_HS12 = False  # HS12 data from 2012-END_YEAR
 PROCESS_HS96 = False
-PROCESS_HS02 = True
+PROCESS_HS02 = False
 PROCESS_HS07 = False
 PROCESS_HS17 = False
 PROCESS_HS22 = True
@@ -57,29 +57,30 @@ PROCESS_SITC1 = False  # SITC data from 1962-END_YEAR
 PROCESS_SITC2 = False  # SITC data from 1976-END_YEAR
 PROCESS_SITC3 = False  # SITC data from 1988-END_YEAR
 
-classifications_dict = {
-    "HS92": PROCESS_HS92,
-    "HS12": PROCESS_HS12,
-    "HS96": PROCESS_HS96,
-    "HS02": PROCESS_HS02,
-    "HS07": PROCESS_HS07,
-    "HS17": PROCESS_HS17,
-    "HS22": PROCESS_HS22,
-    "SITC1": PROCESS_SITC1,
-    "SITC2": PROCESS_SITC2,
-    "SITC3": PROCESS_SITC3,
-}
-
-
 # Year range configuration
 END_YEAR = 2023  # Will default to datetime.now().year - 1
+
+CLASSIFICATION_START_YEARS = {
+    # set start years for each classification
+    "S1": 1962,  # SITC Revision 1 (1962-present)
+    "S2": 1976,  # SITC Revision 2 (1976-present)
+    "S3": 1988,  # SITC Revision 3 (1988-present)
+    "H0": 1992,  # HS Combined (1992-present)
+    "H1": 1996,  # HS 1992 vintage (1996-present)
+    "H2": 2002,  # HS 2002 vintage (2002-present)
+    "H3": 2007,  # HS 2007 vintage (2007-present)
+    "H4": 2012,  # HS 2012 vintage (2012-present)
+    "H5": 2017,  # HS 2017 vintage (2017-present)
+    "H6": 2017,  # HS 2022 vintage (2022-present)
+}
+
 
 # =============================================================================
 # PROCESSING STEPS
 # =============================================================================
 
 PROCESSING_STEPS = {
-    "run_downloader": True,  # Download trade data and convert to requested classification
+    "run_downloader": False,  # Download trade data and convert to requested classification
     "run_converter": True,  # Convert to requested classification
     "run_compactor": True,  # Aggregate reporter files by classificaiton by year
 }
@@ -91,7 +92,6 @@ PROCESSING_STEPS = {
 
 LOG_LEVEL = "INFO"
 SUPPRESS_PRINT = False
-
 
 # =============================================================================
 # COMTRADE DATA REQUEST PARAMETERS (advanced users only)
@@ -124,8 +124,6 @@ DROP_WORLD_PARTNER = False
 DROP_SECONDARY_PARTNERS = True
 
 # Download type - determines data download type as provided by Comtrade
-# Classic = as-reported data (original country classifications)
-# Final = standardized data (converted to specific classification)
 RUN_WEIGHTED_CONVERSION = True
 
 
@@ -138,10 +136,23 @@ DELETE_TEMP_FILES = False  # Keep temporary download files
 COMPRESS_OUTPUT = True  # Compress final output files
 CONVERT_TO_PROCESSED_FILES = True  # Apply classification conversions
 
+# =============================================================================
+# CONFIGURATION DICTIONARY
+# =============================================================================
 
-# =============================================================================
-# CONFIGURATION DICTIONARIES
-# =============================================================================
+classifications_dict = {
+    "HS92": PROCESS_HS92,
+    "HS12": PROCESS_HS12,
+    "HS96": PROCESS_HS96,
+    "HS02": PROCESS_HS02,
+    "HS07": PROCESS_HS07,
+    "HS17": PROCESS_HS17,
+    "HS22": PROCESS_HS22,
+    "SITC1": PROCESS_SITC1,
+    "SITC2": PROCESS_SITC2,
+    "SITC3": PROCESS_SITC3,
+}
+
 
 ENABLED_CLASSIFICATIONS = get_enabled_classifications(classifications_dict)
 
@@ -164,19 +175,4 @@ config_dict = {
     "compress_output": COMPRESS_OUTPUT,
     "suppress_print": SUPPRESS_PRINT,
     "converted_files": CONVERT_TO_PROCESSED_FILES,
-}
-
-CLASSIFICATION_START_YEARS = {
-    # Standard International Trade Classification (SITC)
-    "S1": 1962,  # SITC Revision 1 (1962-present)
-    "S2": 1976,  # SITC Revision 2 (1976-present)
-    "S3": 1988,  # SITC Revision 3 (1988-present)
-    # Harmonized System (HS) Classifications
-    "H0": 1992,  # HS Combined (1992-present)
-    "H1": 1996,  # HS 1992 vintage (1996-present)
-    "H2": 2002,  # HS 2002 vintage (2002-present)
-    "H3": 2007,  # HS 2007 vintage (2007-present)
-    "H4": 2012,  # HS 2012 vintage (2012-present)
-    "H5": 2017,  # HS 2017 vintage (2017-present)
-    "H6": 2022,  # HS 2022 vintage (2022-present)
 }
