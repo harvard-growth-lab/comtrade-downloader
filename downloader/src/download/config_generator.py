@@ -49,9 +49,9 @@ class ConfigGenerator:
         steps = download.get('processing_steps', [])
         
         return {
-            'run_downloader': 'run_downloader' in steps,
-            'run_converter': 'run_converter' in steps,
-            'run_compactor': 'run_compactor' in steps,
+            'run_downloader': steps.get('run_downloader', False),
+            'run_converter': steps.get('run_converter', False),
+            'run_compactor': steps.get('run_compactor', False),
         }
     
     def _get_paths(self) -> Dict[str, str]:

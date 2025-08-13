@@ -277,12 +277,12 @@ class ComtradeDownloader(object):
 
         if df.empty:
             df_temp.to_parquet(
-                Path(self.config.handle_empty_files_path / f.name),
+                Path(self.config.handle_empty_files_path / Path(f).name),
                 compression="snappy",
                 index=False,
             )
             self.config.logger.warning(
-                f"Error check file: {f}, returning empty after filtering"
+                f"Error check file: {Path(f).name}, returning empty after filtering"
             )
 
         del df_temp

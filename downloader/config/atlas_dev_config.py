@@ -45,16 +45,16 @@ OUTPUT_BASE_DIR = "/n/hausmann_lab/lab/atlas/data/"
 # =============================================================================
 
 # Which trade classifications to download (leave True for the ones you want)
-PROCESS_HS92 = False  # HS92 data from 1992-END_YEAR
-PROCESS_HS12 = False  # HS12 data from 2012-END_YEAR
+PROCESS_HS92 = True  # HS92 data from 1992-END_YEAR
+PROCESS_HS12 = True  # HS12 data from 2012-END_YEAR
 PROCESS_HS96 = False
 PROCESS_HS02 = False
 PROCESS_HS07 = False
 PROCESS_HS17 = False
-PROCESS_HS22 = True
+PROCESS_HS22 = False
 
 PROCESS_SITC1 = False  # SITC data from 1962-END_YEAR
-PROCESS_SITC2 = False  # SITC data from 1976-END_YEAR
+PROCESS_SITC2 = True  # SITC data from 1976-END_YEAR
 PROCESS_SITC3 = False  # SITC data from 1988-END_YEAR
 
 # Year range configuration
@@ -81,7 +81,7 @@ CLASSIFICATION_START_YEARS = {
 
 PROCESSING_STEPS = {
     "run_downloader": False,  # Download trade data and convert to requested classification
-    "run_converter": True,  # Convert to requested classification
+    "run_converter": False,  # Convert to requested classification
     "run_compactor": True,  # Aggregate reporter files by classificaiton by year
 }
 

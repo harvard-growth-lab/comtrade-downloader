@@ -1,15 +1,17 @@
-from data.static.constants import CONVERSION_LINKS
-from src.download.configure_downloader import build_config_for_classification
-from src.download.api_downloader import ComtradeDownloader
-from src.download.converter import ClassificationConverter
+from downloader.data.static.constants import CONVERSION_LINKS
+from downloader.src.download.configure_downloader import build_config_for_classification
+from downloader.src.download.api_downloader import ComtradeDownloader
+from downloader.src.download.converter import ClassificationConverter
+from downloader.src.download.config_generator import ConfigGenerator
 from datetime import datetime
 import logging
 
 import importlib
 import argparse
+from pathlib import Path
 
 
-def run(config_file):
+def run():
     """
     Downloads and converts comtrade data for the requested classifications starting from the
     released year of requested classification up to the previous year or a specified end year
@@ -21,12 +23,9 @@ def run(config_file):
     already converted by Comtrade to the requested classification
     """
     try:
-        if config_file == "user_config":
-            config_module = importlib.import_module(config_file)
-        else:
-            config_module = importlib.import_module(f"config.{config_file}")
+        config_module = importlib.import_module("config.generated_config")
     except ImportError:
-        raise ImportError(f"Config module '{config_file}' not found")
+        raise ImportError(f"Config module not found. Please run the config generator.")
 
     # Get config variables from the imported module
     ENABLED_CLASSIFICATIONS = config_module.ENABLED_CLASSIFICATIONS
@@ -45,6 +44,7 @@ def run(config_file):
 
         if not enabled:
             continue
+
 
         if PROCESSING_STEPS["run_converter"]:
             if RUN_WEIGHTED_CONVERSION:
@@ -107,15 +107,28 @@ def main():
     )
     parser.add_argument(
         "--config",
-        choices=["user_config", "atlas_dev_config"],
+        choices=["user_config", "atlas_dev_config", "dev"],
         default="user_config",
         help="Config file to use (default: user_config)",
     )
 
     args = parser.parse_args()
+    config_file = args.config
 
-    logging.info(f"Using config: {args.config}")
-    run(args.config)
+        # Generate Python config from YAML
+    if config_file == "user_config":
+        config_path = Path(f"{config_file}.yaml")
+    else:
+        config_path = Path("config") / f"{config_file}.yaml"
+
+
+    # Create generator and generate config
+    generator = ConfigGenerator(config_path)
+    generator.generate_python_config('config/generated_config.py')
+
+    logging.info(f"Using config: {config_file}")
+
+    run()
 
 
 if __name__ == "__main__":

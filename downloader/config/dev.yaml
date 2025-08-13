@@ -1,6 +1,5 @@
-# Master Pipeline Configuration
+# Downloader Pipeline Configuration
 # This is the user-editable file for all pipeline settings
-# Location: atlas_pipeline/config/master_config.yaml
 
 # ==============================================================================
 # SHARED SETTINGS - Used across multiple pipeline stages
@@ -15,13 +14,13 @@ shared:
 # ==============================================================================
 classifications:
   # Harmonized System (HS) Classifications
-  hs22: true    # HS 2022 (newest) - recommended for recent data
-  hs17: true    # HS 2017
-  hs12: false   # HS 2012
+  hs22: false    # HS 2022 (newest) - recommended for recent data
+  hs17: false    # HS 2017
+  hs12: true   # HS 2012
   hs07: false   # HS 2007
   hs02: false   # HS 2002
   hs96: false   # HS 1996 
-  hs92: false   # HS 1992 (oldest)
+  hs92: true   # HS 1992 (oldest)
   
   # Standard International Trade Classification (SITC)
   sitc1: false  # SITC Revision 1 (1962-1975)
@@ -34,7 +33,7 @@ classification_start_years:
   H1: 1996  # HS 1992 vintage (1996-present)
   H2: 2002  # HS 2002 vintage (2002-present)
   H3: 2007  # HS 2007 vintage (2007-present)
-  H4: 2012  # HS 2012 vintage (2012-present)
+  H4: 2007  # HS 2012 vintage (2012-present)
   H5: 2017  # HS 2017 vintage (2017-present)
   H6: 2017  # HS 2022 vintage (2022-present)
   # Standard International Trade Classification (SITC)
@@ -51,9 +50,9 @@ download:
   paths:
     - output_base_dir: /n/hausmann_lab/lab/atlas/data/
   processing_steps: 
-    - "run_downloader"
-    - "run_converter"
-    - "run_compactor"
+    "run_downloader": false
+    "run_converter": true
+    "run_compactor": true
   api_settings:
     reporter_countries: []
     partner_countries: []
