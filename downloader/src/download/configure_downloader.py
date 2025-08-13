@@ -4,7 +4,7 @@ from datetime import datetime
 import logging
 import os
 import sys
-from src.utils.handle_config import get_end_year
+from downloader.src.utils.handle_config import get_end_year
 import importlib
 
 
