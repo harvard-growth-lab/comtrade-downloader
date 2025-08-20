@@ -1,13 +1,13 @@
 from pathlib import Path
 import re
 from datetime import datetime, timedelta
-from src.download.configure_downloader import ComtradeConfig
-from src.download.comtrade_file import ComtradeFile
-from src.download.api_downloader import ComtradeDownloader
+from downloader.src.download.configure_downloader import ComtradeConfig
+from downloader.src.download.comtrade_file import ComtradeFile
+from downloader.src.download.api_downloader import ComtradeDownloader
 import pandas as pd
 import os
 import shutil
-from src.utils.file_management import cleanup_files_from_dir
+from downloader.src.utils.file_management import cleanup_files_from_dir
 
 
 pd.options.display.max_columns = None

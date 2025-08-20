@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 from datetime import datetime, timedelta
-from src.download.configure_downloader import ComtradeConfig
-from src.download.comtrade_file import ComtradeFile
+from downloader.src.download.configure_downloader import ComtradeConfig
+from downloader.src.download.comtrade_file import ComtradeFile
 from contextlib import contextmanager, nullcontext
 import os, sys
 import comtradeapicall
