@@ -4,14 +4,12 @@ from downloader.src.download.api_downloader import ComtradeDownloader
 from downloader.src.download.converter import ClassificationConverter
 from downloader.src.download.config_generator import ConfigGenerator
 from datetime import datetime
+from downloader.data.static.constants import CLASSIFICATION_RELEASE_YEARS
 import logging
 
 import importlib
 import argparse
 from pathlib import Path
-
-
-
 
 def run():
     """
@@ -37,24 +35,25 @@ def run():
     config_dict = config_module.config_dict
     END_YEAR = config_dict["end_year"]
 
-    min_start_year = min(CLASSIFICATION_START_YEARS.values())
-    import pdb; pdb.set_trace()
+    min_start_year = min([start_year for (classification, start_year) in CLASSIFICATION_START_YEARS.items() if classification in ENABLED_CLASSIFICATIONS])
 
-
-    if DOWNLOAD_FOR_CONVERSION:
+    if PROCESSING_STEPS["run_converter"] and DOWNLOAD_FOR_CONVERSION:
         for classification in CONVERSION_LINKS:
-            logging.info(
-                f"Downloading any country reported files for {classification} starting in {CLASSIFICATION_START_YEARS[classification]}"
-            )
             if (
-                min_start_year > CLASSIFICATION_START_YEARS[classification]
+                min_start_year > CLASSIFICATION_RELEASE_YEARS[classification]
             ):
+                logging.info(
+                    f"Skipping {classification} as it starts in {CLASSIFICATION_START_YEARS[classification]} which is before the minimum start year of {min_start_year}"
+                )
                 continue
             
             download_for_conversion_config = build_config_for_classification(
                 classification,
                 CLASSIFICATION_START_YEARS[classification],
                 **config_dict,
+            )
+            logging.info(
+                f"Downloading any country reported files for {classification} starting in {CLASSIFICATION_START_YEARS[classification]}"
             )
             conversion_downloader = ComtradeDownloader(download_for_conversion_config)
             conversion_downloader.download_comtrade_yearly_bilateral_flows()
@@ -68,11 +67,11 @@ def run():
         )
         downloader = ComtradeDownloader(target_classification_config)
 
-        if SERVICES in requested_classification and download_for_conversion or processing_steps["run_downloader"]:
+        if requested_classification in SERVICES and DOWNLOAD_FOR_CONVERSION or PROCESSING_STEPS["run_downloader"]:
             target_classification_config.download_type = "services"
             downloader.download_comtrade_yearly_bilateral_flows()
 
-        if PROCESSING_STEPS["run_downloader"] and not download_for_conversion:
+        if PROCESSING_STEPS["run_downloader"] and not DOWNLOAD_FOR_CONVERSION:
             # download if downloader not already called for the converter which will 
             # always be inclusive for any downloader classification requests 
             downloader.download_comtrade_yearly_bilateral_flows()
@@ -108,7 +107,7 @@ def main():
     )
     parser.add_argument(
         "--config",
-        choices=["user_config", "atlas_dev_config", "dev"],
+        choices=["user_config", "atlas_run", "dev"],
         default="user_config",
         help="Config file to use (default: user_config)",
     )
