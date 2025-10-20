@@ -5,6 +5,8 @@ import logging
 import os
 import sys
 from downloader.src.utils.handle_config import get_end_year
+from downloader.data.static.constants import SERVICES
+
 import importlib
 
 
@@ -60,6 +62,8 @@ class ComtradeConfig:
         self.suppress_print = suppress_print or True
         self.converted_files = converted_files or True
 
+        self.handle_services()
+        
         self._validate()
         self._setup_paths()
         self._setup_logger(log_level)
@@ -68,6 +72,11 @@ class ComtradeConfig:
             self.file_extension = "gz"
         else:
             self.file_extension = "csv"
+            
+    def handle_services(self):
+        if self.classification_code in SERVICES:
+            self.converted_files = False
+            
 
     def _validate(self):
         if not self.api_key:

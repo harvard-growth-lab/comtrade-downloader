@@ -83,7 +83,7 @@ class BaseDownloader:
 
     @staticmethod
     def create_downloader(config):
-        downloaders = {"classic": ClassicDownloader, "final": BulkDownloader}
+        downloaders = {"classic": ClassicDownloader, "final": BulkDownloader, "services" : ServicesDownloader}
         return downloaders[config.download_type](config)
 
     def execute_download(self, year: int, year_path: Path, last_updated: datetime):
@@ -406,3 +406,66 @@ class BulkDownloader(BaseDownloader):
             df_since_download = df[df["timestamp"].dt.date > latest_date.date()]
             reporter_codes = df_since_download["reporterCode"].unique()
             return reporter_codes
+        
+
+class ServicesDownloader(BaseDownloader):
+    columns = {
+        # "period": "int16",
+        "reporterCode": "category",
+        "flowCode": "category",
+        "partnerCode": "category",
+        "partner2Code": "int16",
+        # "classificationCode": "string",
+        "cmdCode": "string",
+        "customsCode": "category",
+        "mosCode": "category",
+        "motCode": "category",
+        # "qtyUnitCode": "int8",
+        "qty": "float64",
+        # "isQtyEstimated": "int8",
+        # Comtrade passes NAN values
+        "CIFValue": "float64",
+        "FOBValue": "float64",
+        "primaryValue": "float64",
+        "isAggregate": "category",
+    }
+
+    def __init__(self, config: ComtradeConfig):
+        super().__init__(config)
+
+    def execute_download(self, year: int, last_updated, reporter_code):
+        params = {
+            "subscription_key": self.config.api_key,
+            "directory": self.year_path,
+            "typeCode": "S", # services
+            "freqCode": "A",
+            "clCode": self.config.classification_code,
+            "period": str(year),
+            "reporterCode": reporter_code,
+            "decompress": False,
+        }
+        if last_updated != self.earliest_date:
+            params["publishedDateFrom"] = (last_updated + timedelta(days=1)).strftime(
+                "%Y-%m-%d"
+            )
+
+        with self.suppress_stdout() if self.config.suppress_print else nullcontext():
+            comtradeapicall.bulkDownloadFinalFile(**params)
+
+    def get_reporters_by_data_availability(self, year: int, latest_date: datetime):
+        df = comtradeapicall.getFinalDataBulkAvailability(
+            self.config.api_key,
+            typeCode="S",
+            freqCode="A",
+            clCode=self.config.classification_code,
+            period=str(year),
+            reporterCode=None,
+        )
+        if df.empty:
+            return []
+        else:
+            df["timestamp"] = pd.to_datetime(df["timestamp"])
+            df_since_download = df[df["timestamp"].dt.date > latest_date.date()]
+            reporter_codes = df_since_download["reporterCode"].unique()
+            return reporter_codes
+

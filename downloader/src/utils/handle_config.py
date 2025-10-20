@@ -37,6 +37,9 @@ def get_enabled_classifications(classifications_dict: dict):
 
     if classifications_dict["HS22"]:
         classifications["H6"] = True
+        
+    if classifications_dict["EB10"]:
+        classifications["EB10"] = True
 
     return classifications
 

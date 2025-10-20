@@ -60,10 +60,11 @@ class ComtradeDownloader(object):
                 updated_reporters = self.downloader.get_reporters_by_data_availability(
                     year, last_updated
                 )
-                self.config.logger.info(
-                    f"Downloading reporter {self.config.classification_code} - {year} "
-                    f"files updated since {last_updated}."
-                )
+                if len(updated_reporters) > 0:
+                    self.config.logger.info(
+                        f"Downloading reporter {self.config.classification_code} - {year} "
+                        f"files updated since {last_updated}."
+                    )
             else:
                 last_updated = self.downloader.earliest_date
                 self.config.logger.info(
@@ -159,8 +160,8 @@ class ComtradeDownloader(object):
         Returns:
             list[Path]: List of paths to the archived files
         """
-        path_dir = os.path.dirname(path)
-        files = [f for f in os.listdir(path_dir) if f.endswith(".parquet")]
+        path_dir = str(path)
+        files = [f for f in path.glob("*.parquet")]
         reporter_dates = {
             code: [] for code in {ComtradeFile(f).reporter_code for f in files}
         }
@@ -187,9 +188,12 @@ class ComtradeDownloader(object):
                 try:
                     if os.path.isfile(archive_path / outdated_file):
                         os.remove(archive_path / outdated_file)
-                    source_path = Path(path_dir) / outdated_file
+                    source_path = path / outdated_file
                     shutil.move(str(source_path), str(archive_path))
                     relocated.append(outdated_file)
+                    self.config.logger.info(f"Moved duplicated file {outdated_file} to archived files")
+                except FileNotFoundError:
+                    print(f"File not found: {source_path}")
                 except shutil.Error as e:
                     self.config.logger.error(
                         f"Failed to move {outdated_file} to archived files: {e}"

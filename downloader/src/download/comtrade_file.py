@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PosixPath
 import re
 from datetime import datetime
 
@@ -27,6 +27,7 @@ class ComtradeFile:
         patterns = [
             r"COMTRADE-FINALCLASSIC-CA(?P<reporter>\d{3})(?P<year>\d{4})(?P<classification>\w+)\[(?P<date>[\d-]+)\]",
             r"COMTRADE-FINAL-CA(?P<reporter>\d{3})(?P<year>\d{4})(?P<classification>\w+)\[(?P<date>[\d-]+)\]",
+            r"COMTRADE-FINAL-SA(?P<reporter>\d{3})(?P<year>\d{4})(?P<classification>\w+)\[(?P<date>[\d-]+)\]",
         ]
 
         for pattern in patterns:
@@ -79,13 +80,26 @@ class ComtradeFiles:
         """
         files = set()
         for f in self.files:
+            if type(f) == PosixPath:
+                f = str(f)
             for date in dates:
                 date_str = date.strftime("%Y-%m-%d")
+
                 file = re.search(
                     f".*COMTRADE-FINAL-CA{reporter_code}\\d{{4}}\\w+\\[{date_str}]", f
                 )
+                file_classic = re.search(
+                    f".*COMTRADE-FINALCLASSIC-CA{reporter_code}\\d{{4}}\\w+\\[{date_str}]", f
+                )
+
                 try:
-                    files.add(file.string)
+                    file = Path(file.string)
+                    files.add(file.name)
+                except AttributeError as e:
+                    pass
+                try:
+                    file_classic = Path(file_classic.string)
+                    files.add(file_classic.name)
                 except AttributeError as e:
                     pass
         return files

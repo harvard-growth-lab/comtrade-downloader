@@ -5,8 +5,8 @@
 # SHARED SETTINGS - Used across multiple pipeline stages
 # ==============================================================================
 shared:
-  output_base_dir: "./output"           # Where all outputs go
-  end_year: 2023                        # Latest year to download
+  output_base_dir: "/n/hausmann_lab/lab/atlas/data"           # Where all outputs go
+  end_year: 2024                        # Latest year to download
   log_level: "INFO"                     # DEBUG, INFO, WARNING, ERROR
 
 # ==============================================================================
@@ -14,7 +14,7 @@ shared:
 # ==============================================================================
 classifications:
   # Harmonized System (HS) Classifications
-  hs22: false    # HS 2022 (newest) - recommended for recent data
+  hs22: true    # HS 2022 (newest) - recommended for recent data
   hs17: false    # HS 2017
   hs12: true   # HS 2012
   hs07: false   # HS 2007
@@ -24,8 +24,11 @@ classifications:
   
   # Standard International Trade Classification (SITC)
   sitc1: false  # SITC Revision 1 (1962-1975)
-  sitc2: false  # SITC Revision 2 (1976-1987)
+  sitc2: true  # SITC Revision 2 (1976-1987)
   sitc3: false  # SITC Revision 3 (1988+)
+  
+  # Services
+  eb10: false
 
 classification_start_years:
   # Harmonized System (HS) Classifications
@@ -40,13 +43,15 @@ classification_start_years:
   S1: 1962  # SITC Revision 1 (1962-present)
   S2: 1976  # SITC Revision 2 (1976-present)
   S3: 1988  # SITC Revision 3 (1988-present)
+  # Services EBOPS
+  EB10: 2005
 
 # ==============================================================================
 # BILATERAL TRADE ANALYSIS SETTINGS  
 # ==============================================================================
 download:
   data_version: null
-  download_type: "as_reported" # "by_classification"
+  download_type: "by_classification" # "as_reported" "by_classification"
   paths:
     - output_base_dir: /n/hausmann_lab/lab/atlas/data/
   processing_steps: 
@@ -64,7 +69,7 @@ download:
     drop_world_partner: False
     drop_secondary_partners: True
   trade_settings:
-    run_weighted_conversion: True
+    download_for_conversion: True
     delete_temp_files: False
     compress_output: True
     convert_to_processed_files: True

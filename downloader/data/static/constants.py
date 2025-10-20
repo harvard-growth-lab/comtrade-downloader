@@ -1,5 +1,6 @@
 from pathlib import Path
 
+SERVICES = ["EB10"]
 
 CONVERSION_LINKS = [
     "S1",

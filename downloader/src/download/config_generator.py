@@ -41,6 +41,7 @@ class ConfigGenerator:
             'PROCESS_HS12': classifications.get('hs12', False),
             'PROCESS_HS17': classifications.get('hs17', False),
             'PROCESS_HS22': classifications.get('hs22', False),
+            'PROCESS_EB10': classifications.get('eb10', False),
         }
         
     def _map_processing_steps(self) -> Dict[str, bool]:
@@ -92,7 +93,7 @@ class ConfigGenerator:
         trade_settings = download.get('trade_settings', {})
         
         return {
-            'run_weighted_conversion': trade_settings.get('run_weighted_conversion', True),
+            'download_for_conversion': trade_settings.get('download_for_conversion', True),
             'delete_temp_files': trade_settings.get('delete_temp_files', False),
             'compress_output': trade_settings.get('compress_output', True),
             'convert_to_processed_files': trade_settings.get('convert_to_processed_files', True),
@@ -205,6 +206,8 @@ PROCESS_SITC1 = {classification_flags['PROCESS_SITC1']}  # SITC data from 1962-E
 PROCESS_SITC2 = {classification_flags['PROCESS_SITC2']}  # SITC data from 1976-END_YEAR
 PROCESS_SITC3 = {classification_flags['PROCESS_SITC3']}  # SITC data from 1988-END_YEAR
 
+PROCESS_EB10 = {classification_flags['PROCESS_EB10']}  # Services data from 2005-END_YEAR
+
 # Year range configuration
 END_YEAR = {kwargs['end_year']}  # Will default to datetime.now().year - 1
 
@@ -223,6 +226,7 @@ PROCESSING_STEPS = {{
     "run_compactor": {processing_steps['run_compactor']},  # Aggregate reporter files by classificaiton by year
 }}
 
+DOWNLOAD_FOR_CONVERSION = {trade_settings['download_for_conversion']}
 
 # =============================================================================
 # LOGGING
@@ -261,10 +265,6 @@ CUSTOMS_CODES = {api_settings['customs_codes']}  # Customs procedure codes
 DROP_WORLD_PARTNER = {api_settings['drop_world_partner']}
 DROP_SECONDARY_PARTNERS = {api_settings['drop_secondary_partners']}
 
-# Download type - determines data download type as provided by Comtrade
-RUN_WEIGHTED_CONVERSION = {trade_settings['run_weighted_conversion']}
-
-
 # =============================================================================
 # PROCESSING OPTIONS  (advanced users only)
 # =============================================================================
@@ -289,6 +289,7 @@ classifications_dict = {{
     "SITC1": PROCESS_SITC1,
     "SITC2": PROCESS_SITC2,
     "SITC3": PROCESS_SITC3,
+    "EB10" : PROCESS_EB10,
 }}
 
 
@@ -297,7 +298,7 @@ ENABLED_CLASSIFICATIONS = get_enabled_classifications(classifications_dict)
 config_dict = {{
     "api_key": API_KEY,
     "output_dir": OUTPUT_BASE_DIR,
-    "download_type": get_download_type(RUN_WEIGHTED_CONVERSION),
+    "download_type": get_download_type(PROCESSING_STEPS['run_converter']),
     "log_level": LOG_LEVEL,
     "end_year": get_end_year(END_YEAR),
     "reporter_iso3_codes": REPORTER_COUNTRIES,
@@ -313,6 +314,7 @@ config_dict = {{
     "compress_output": COMPRESS_OUTPUT,
     "suppress_print": SUPPRESS_PRINT,
     "converted_files": CONVERT_TO_PROCESSED_FILES,
+    "download_for_conversion": DOWNLOAD_FOR_CONVERSION,
 }}
 '''
     
@@ -346,5 +348,12 @@ config_dict = {{
                     'H6': 'HS 2022 vintage (2022-present)'
                 }[key]
                 lines.append(f'    "{key}": {year},  # {comment}')
-        
+                
+        for key in ['EB10']:
+            if key in start_years:
+                year = start_years[key]
+                comment = {
+                    'EB10': 'Services EBOPS (2005-present)',
+                }[key]
+                lines.append(f'    "{key}": {year},  # {comment}')
         return '\n'.join(lines)    
