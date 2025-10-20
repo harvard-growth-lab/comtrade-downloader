@@ -23,6 +23,7 @@ from pathlib import Path
 
 class ComtradeDownloader(object):
     TAIWAN = {"S19": "TWN"}
+    NUMBER_OF_YEAR_PAST_SINCE_LAST_REPORT = 2
 
     def __init__(self, config: ComtradeConfig):
         self.config = config
@@ -48,7 +49,9 @@ class ComtradeDownloader(object):
         reporter_codes = []
         self.downloader = BaseDownloader.create_downloader(self.config)
         self.config.logger.info(f"Beginning downloader...")
-        for year in self.config.years:
+        start_year = max(CLASSIFICATION_RELEASE_YEARS[self.config.classification_code], self.config.start_year)
+
+        for year in range(start_year, self.config.end_year + 1):
             year_path = Path(self.config.raw_files_path / str(year))
             year_path.mkdir(parents=True, exist_ok=True)
             parquet_path = Path(self.config.raw_files_parquet_path / str(year))
@@ -64,8 +67,11 @@ class ComtradeDownloader(object):
             else:
                 if year < CLASSIFICATION_RELEASE_YEARS[self.config.classification_code]:
                     self.config.logger.info(f"Classification {self.config.classification_code} was not released until {CLASSIFICATION_RELEASE_YEARS[self.config.classification_code]} nothing to download for {year}.")
-                else:
+                elif last_updated != self.downloader.earliest_date:
                     self.config.logger.info(f"No new data has been reported for {self.config.classification_code} - {year} since {last_updated}.")
+                    if last_updated.year < datetime.now().year - self.NUMBER_OF_YEAR_PAST_SINCE_LAST_REPORT:
+                        self.config.logger.info("No recent data has been reported, skipping remaining years for this classification")
+                        return
                 relocated_files = self.keep_most_recent_published_data(year, parquet_path)
                 continue
 

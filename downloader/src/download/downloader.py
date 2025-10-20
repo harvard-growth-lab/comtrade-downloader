@@ -340,8 +340,8 @@ class ClassicDownloader(BaseDownloader):
         if df.empty:
             return []
         else:
-            df["timestamp"] = pd.to_datetime(df["timestamp"])
-            df_since_download = df[df["timestamp"].dt.date > latest_date.date()]
+            df["publicationDate"] = pd.to_datetime(df["publicationDate"], format='ISO8601')
+            df_since_download = df[df["publicationDate"].dt.date > latest_date.date()]
             reporter_codes = df_since_download["reporterCode"].unique()
             return reporter_codes
 
@@ -402,8 +402,8 @@ class BulkDownloader(BaseDownloader):
         if df.empty:
             return []
         else:
-            df["timestamp"] = pd.to_datetime(df["timestamp"])
-            df_since_download = df[df["timestamp"].dt.date > latest_date.date()]
+            df["publicationDate"] = pd.to_datetime(df["publicationDate"], format='ISO8601')
+            df_since_download = df[df["publicationDate"].dt.date > latest_date.date()]
             reporter_codes = df_since_download["reporterCode"].unique()
             return reporter_codes
         
@@ -464,8 +464,8 @@ class ServicesDownloader(BaseDownloader):
         if df.empty:
             return []
         else:
-            df["timestamp"] = pd.to_datetime(df["timestamp"])
-            df_since_download = df[df["timestamp"].dt.date > latest_date.date()]
+            df["publicationDate"] = pd.to_datetime(df["publicationDate"], format='ISO8601')
+            df_since_download = df[df["publicationDate"].dt.date > latest_date.date()]
             reporter_codes = df_since_download["reporterCode"].unique()
             return reporter_codes
 
