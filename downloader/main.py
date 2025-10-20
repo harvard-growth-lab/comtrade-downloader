@@ -67,7 +67,7 @@ def run():
         )
         downloader = ComtradeDownloader(target_classification_config)
 
-        if requested_classification in SERVICES and DOWNLOAD_FOR_CONVERSION or PROCESSING_STEPS["run_downloader"]:
+        if requested_classification in SERVICES and (DOWNLOAD_FOR_CONVERSION or PROCESSING_STEPS["run_downloader"]):
             target_classification_config.download_type = "services"
             downloader.download_comtrade_yearly_bilateral_flows()
 
