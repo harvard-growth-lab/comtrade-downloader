@@ -1,17 +1,18 @@
 # Comtrade Downloader
 
-Download and process UN Comtrade bilateral trade data for SITC and HS product classifications systems convert original classification vintages into requested classification vintages. 
+Downloads and processes UN Comtrade bilateral trade data for the Standard International Trade Classification (SITC) and Harmonized Systems (HS).
 
 ## What This Does
 
-Download and archive country reported trade data from UN Comtrade in SITC & HS classification systems. Pulls latest country reported data, based on previous data downloaded. Outputs data aggregated by year for requested classification for ease of analysis, while also storing raw files downloaded by Comtrade. 
+Download and processes country reported trade data from UN Comtrade, in SITC & HS classifications. Pulls latest country reported data, based on previous data downloaded. Outputs data aggregated by year for requested classification, while also storing raw files downloaded by Comtrade. 
 
 ### Prerequisites
 - Python 3.10 or higher
 - [Poetry](https://python-poetry.org/docs/) for managing dependencies
 - Premium UN Comtrade API key ([get one here](https://comtradeplus.un.org/))
-- Sufficient disk space (classification requested dependent, requires up to 60GB memory)
-
+- Disk space: up to 60GB (varies by classification scope)
+- RAM: minimum 8GB recommended for data processing
+  
 ## Installation
 
 ```bash
