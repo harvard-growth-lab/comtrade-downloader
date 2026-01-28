@@ -10,9 +10,8 @@ Download and processes country reported trade data from UN Comtrade, in SITC & H
 - Python 3.10 or higher
 - [Poetry](https://python-poetry.org/docs/) for managing dependencies
 - Premium UN Comtrade API key ([get one here](https://comtradeplus.un.org/))
-- Disk space: up to 60GB (varies by classification scope)
-- RAM: minimum 8GB recommended for data processing
-  
+- RAM: 16GB minimum, 32GB+ recommended (compactor step loads full year into memory)
+- Disk space: up to 60GB depending on classifications enabled  
 ## Installation
 
 ```bash
