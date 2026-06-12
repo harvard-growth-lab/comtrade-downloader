@@ -9,6 +9,7 @@ import pandas as pd
 import os
 import shutil
 from downloader.src.utils.file_management import cleanup_files_from_dir
+import gc
 
 
 pd.options.display.max_columns = None
@@ -86,6 +87,7 @@ class ClassificationConverter(object):
             # multiply weight by trade value
             self.run_conversion(weight, source_class)
             del weight
+            gc.collect()
 
     def run_conversion(self, weight: pd.DataFrame, source_class: str) -> None:
         """Run conversion in specified direction for given years"""
@@ -105,7 +107,7 @@ class ClassificationConverter(object):
             as_reported_files = list(raw_parquet_path.glob("*.parquet"))
             if not as_reported_files:
                 self.config.logger.info(f"no country reported in {source_class} in {as_reported_year}")
-                return
+                continue
 
             # Process each file
             for file in as_reported_files:
@@ -113,6 +115,7 @@ class ClassificationConverter(object):
                 if df.empty:
                     continue
                 result = self.add_product_levels(df)
+                del df
                 result["isAggregate"] = 1
                 result = result.drop(columns="level")
 
@@ -309,6 +312,7 @@ class ClassificationConverter(object):
 
             weights = weights.drop_duplicates()
             del next_class_weights
+            self.config.logger.debug(f"weights columns after step {counter}: {weights.columns.tolist()}")
             next_class = seq_class
 
         weights = weights[weights[f"weight_{source_class}_{self.target_class}"] > 0]

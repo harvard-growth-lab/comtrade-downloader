@@ -6,7 +6,7 @@
 # ==============================================================================
 shared:
   output_base_dir: "/n/hausmann_lab/lab/atlas/data"           # Where all outputs go
-  end_year: 2022                       # Latest year to download
+  end_year: 2000                       # Latest year to download
   log_level: "INFO"                     # DEBUG, INFO, WARNING, ERROR
 
 # ==============================================================================
@@ -14,13 +14,13 @@ shared:
 # ==============================================================================
 classifications:
   # Harmonized System (HS) Classifications
-  hs22: true    # HS 2022 (newest) - recommended for recent data
+  hs22: false    # HS 2022 (newest) - recommended for recent data
   hs17: false    # HS 2017
   hs12: false   # HS 2012
   hs07: false   # HS 2007
   hs02: false   # HS 2002
   hs96: false   # HS 1996 
-  hs92: false   # HS 1992 (oldest)
+  hs92: true   # HS 1992 (oldest)
   
   # Standard International Trade Classification (SITC)
   sitc1: false  # SITC Revision 1 (1962-1975)
@@ -32,7 +32,7 @@ classifications:
 
 classification_start_years:
   # Harmonized System (HS) Classifications
-  H0: 1995  # HS Combined (1992-present)
+  H0: 1999  # HS Combined (1988-present)
   H1: 1996  # HS 1992 vintage (1996-present)
   H2: 2002  # HS 2002 vintage (2002-present)
   H3: 2007  # HS 2007 vintage (2007-present)
@@ -56,7 +56,7 @@ download:
     - output_base_dir: /n/hausmann_lab/lab/atlas/data/
   processing_steps: 
     "run_downloader": False
-    "run_converter": True
+    "run_converter": False
     "run_compactor": True
   api_settings:
     reporter_countries: []

@@ -144,6 +144,9 @@ class BaseDownloader:
         # South Africa represented in Comtrade as ZA1 and ZAF
         df.loc[df.reporterISO3 == "ZA1", "reporterISO3"] = "ZAF"
         df.loc[df.partnerISO3 == "ZA1", "partnerISO3"] = "ZAF"
+        df.loc[df.partnerCode == "711", "partnerISO3"] = "ZAF"
+        df.loc[df.partnerISO3 == "711", "reporterISO3"] = "ZAF"
+
         return df.drop(columns=["reporterCode", "partnerCode"])
 
     def process_downloaded_files(

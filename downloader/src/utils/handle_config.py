@@ -51,7 +51,7 @@ def get_end_year(end_year: int):
     return datetime.now().year - 1
 
 
-def get_download_type(run_weights: bool) -> str:
+def get_download_type(download_type: bool) -> str:
     """
     Determine download type based on whether weights are being run
 
@@ -60,6 +60,9 @@ def get_download_type(run_weights: bool) -> str:
      "final" = standardized data (converted to specific classification)
 
     """
-    if run_weights:
+    if download_type == "as_reported":
         return "classic"
-    return "final"
+    elif download_type == "by_classification":
+        return "final"
+    else:
+        raise ValueError("invalid download type")

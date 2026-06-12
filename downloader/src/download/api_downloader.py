@@ -10,6 +10,7 @@ import pandas as pd
 import glob
 import os
 import shutil
+import subprocess
 import sys
 import re
 import time
@@ -51,6 +52,7 @@ class ComtradeDownloader(object):
         self.config.logger.info(f"Beginning downloader...")
         start_year = max(CLASSIFICATION_RELEASE_YEARS[self.config.classification_code], self.config.start_year)
 
+        year_dates = {}
         for year in range(start_year, self.config.end_year + 1):
             year_path = Path(self.config.raw_files_path / str(year))
             year_path.mkdir(parents=True, exist_ok=True)
@@ -58,6 +60,8 @@ class ComtradeDownloader(object):
             parquet_path.mkdir(parents=True, exist_ok=True)
 
             last_updated = self.get_last_download_date(year)
+            if last_updated != self.downloader.earliest_date:
+                year_dates[year] = last_updated
             updated_reporters = self.downloader.get_reporters_by_data_availability(year, last_updated)
             if len(updated_reporters) > 0:
                 self.config.logger.info(
@@ -71,6 +75,7 @@ class ComtradeDownloader(object):
                     self.config.logger.info(f"No new data has been reported for {self.config.classification_code} - {year} since {last_updated}.")
                     if last_updated.year < datetime.now().year - self.NUMBER_OF_YEAR_PAST_SINCE_LAST_REPORT:
                         self.config.logger.info("No recent data has been reported, skipping remaining years for this classification")
+                        self.write_data_version_csv(year_dates)
                         return
                 relocated_files = self.keep_most_recent_published_data(year, parquet_path)
                 continue
@@ -84,6 +89,8 @@ class ComtradeDownloader(object):
             downloaded_files = self.generate_download_report(
                 parquet_path, relocated_files
             )
+
+        self.write_data_version_csv(year_dates)
 
 
     def run_compactor(self) -> None:
@@ -367,6 +374,39 @@ class ComtradeDownloader(object):
             Path(save_dir / f"{self.config.classification_code}_{year}.parquet"),
             compression="snappy",
             index=False,
+        )
+
+    def write_data_version_csv(self, year_dates: dict) -> None:
+        """
+        Appends a record to atlas_download_reports/comtrade_data_version.csv capturing
+        the last published date per year and the overall data_as_of_date (max across all
+        years). Uses year_dates already collected during the download loop — no additional
+        file scans.
+        """
+        if not year_dates:
+            return
+        df = pd.DataFrame(
+            [{"year": y, "last_published_date": d} for y, d in sorted(year_dates.items())]
+        )
+        df["data_as_of_date"] = df["last_published_date"].max()
+        df["run_timestamp"] = datetime.now()
+        try:
+            df["git_sha"] = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+            ).decode().strip()
+        except Exception:
+            df["git_sha"] = "unknown"
+
+        self.config.download_report_path.mkdir(parents=True, exist_ok=True)
+        out_path = self.config.download_report_path / "comtrade_data_version.csv"
+        try:
+            existing = pd.read_csv(out_path)
+            df = pd.concat([existing, df], ignore_index=True)
+        except FileNotFoundError:
+            pass
+        df.to_csv(out_path, index=False)
+        self.config.logger.info(
+            f"Data version CSV updated at {out_path}. Data as of: {df['data_as_of_date'].iloc[-1]}"
         )
 
     def generate_download_report(

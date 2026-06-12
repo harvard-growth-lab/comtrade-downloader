@@ -117,7 +117,7 @@ class ConfigGenerator:
         
         # Generate Python config content
         config_content = self._generate_config_template(
-            end_year=shared.get('end_year', 2023),
+            end_year=shared.get('end_year', 2024),
             log_level=shared.get('log_level', 'INFO'),
             download_type=download.get('download_type', 'as_reported'),
             classification_flags=classification_flags,
@@ -188,6 +188,7 @@ if not API_KEY:
 # Adjust this path to your preferred data storage location
 
 OUTPUT_BASE_DIR = "{paths['output_base_dir']}"
+DOWNLOAD_TYPE = "{kwargs['download_type']}"
 
 # =============================================================================
 # REQUESTED CLASSIFICATIONS AND YEAR RANGE
@@ -298,7 +299,7 @@ ENABLED_CLASSIFICATIONS = get_enabled_classifications(classifications_dict)
 config_dict = {{
     "api_key": API_KEY,
     "output_dir": OUTPUT_BASE_DIR,
-    "download_type": get_download_type(PROCESSING_STEPS['run_converter']),
+    "download_type": get_download_type(DOWNLOAD_TYPE),
     "log_level": LOG_LEVEL,
     "end_year": get_end_year(END_YEAR),
     "reporter_iso3_codes": REPORTER_COUNTRIES,

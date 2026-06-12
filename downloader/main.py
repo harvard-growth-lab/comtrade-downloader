@@ -16,10 +16,10 @@ def run():
     Downloads and converts comtrade data for the requested classifications starting from the
     released year of requested classification up to the previous year or a specified end year
 
-    If RUN_WEIGHTED_CONVERSION is True, the data is converted to the requested
+    If DOWNLOAD_FOR_CONVERSION is True, the data is converted to the requested
     classification and saved in the converted folder
 
-    If RUN_WEIGHTED_CONVERSION is False, the data is downloaded from Comtrade
+    If DOWNLOAD_FOR_CONVERSION is False, the data is downloaded from Comtrade
     already converted by Comtrade to the requested classification
     """
     try:
