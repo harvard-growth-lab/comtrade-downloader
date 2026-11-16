@@ -6,7 +6,7 @@
 # ==============================================================================
 shared:
   output_base_dir: "/n/hausmann_lab/lab/atlas/data"           # Where all outputs go
-  end_year: 2000                       # Latest year to download
+  end_year: 2018                       # Latest year to download
   log_level: "INFO"                     # DEBUG, INFO, WARNING, ERROR
 
 # ==============================================================================
@@ -15,12 +15,12 @@ shared:
 classifications:
   # Harmonized System (HS) Classifications
   hs22: false    # HS 2022 (newest) - recommended for recent data
-  hs17: false    # HS 2017
+  hs17: true    # HS 2017
   hs12: false   # HS 2012
   hs07: false   # HS 2007
   hs02: false   # HS 2002
   hs96: false   # HS 1996 
-  hs92: true   # HS 1992 (oldest)
+  hs92: false   # HS 1992 (oldest)
   
   # Standard International Trade Classification (SITC)
   sitc1: false  # SITC Revision 1 (1962-1975)
@@ -53,10 +53,10 @@ download:
   data_version: null
   download_type: "as_reported" # "as_reported" "by_classification"
   paths:
-    - output_base_dir: /n/hausmann_lab/lab/atlas/data/
+    - output_base_dir: /home/parallels/Desktop/Parallels Shared Folders/AllFiles/Users/ELJ479/projects/comtrade_downloader/data #/n/hausmann_lab/lab/atlas/data/
   processing_steps: 
-    "run_downloader": False
-    "run_converter": False
+    "run_downloader": True
+    "run_converter": True
     "run_compactor": True
   api_settings:
     reporter_countries: []

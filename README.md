@@ -7,7 +7,7 @@ Downloads and processes UN Comtrade bilateral trade data for the Standard Intern
 Download and processes country reported trade data from UN Comtrade, in SITC & HS classifications. Pulls latest country reported data, based on previous data downloaded. Outputs data aggregated by year for requested classification, while also storing raw files downloaded by Comtrade. 
 
 ### Prerequisites
-- Python 3.10 or higher
+- Python 3.14 or higher (pandas 3.x)
 - [Poetry](https://python-poetry.org/docs/) for managing dependencies
 - Premium UN Comtrade API key ([get one here](https://comtradeplus.un.org/))
 - RAM: 16GB minimum, 32GB+ recommended (compactor step loads full year into memory)

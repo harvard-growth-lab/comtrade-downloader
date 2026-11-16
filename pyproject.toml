@@ -11,10 +11,10 @@ comtradeapicall = "^1.2.1"
 urllib3 = "^2.2.3"
 requests = "^2.32.3"
 numpy = ">=2.3.3,<3"
-pandas = ">=2.3.3,<3"
+pandas = ">=3.1.1,<4"
 pyarrow = "^22"
 regex = "^2024.11.6"
-dask = {extras = ["distributed"], version = "^2025.1"}
+dask = {extras = ["distributed"], version = "^2026.8"}
 ipython = "^8.0.0"
 
 

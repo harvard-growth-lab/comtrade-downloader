@@ -71,6 +71,25 @@ class BaseDownloader:
         ref[f"{reference}ISO3"] = ref[f"{reference}ISO3"].astype("string")
         return ref
 
+    def read_raw_file(self, f, **kwargs) -> pd.DataFrame:
+        """
+        Reads a gzipped tab separated file as downloaded from Comtrade
+
+        Category columns are read as strings before conversion so that the
+        categories stay strings (e.g. motCode "0"). pandas >= 3 infers
+        integer categories when reading directly as "category".
+        """
+        category_cols = [col for col, dtype in self.columns.items() if dtype == "category"]
+        df = pd.read_csv(
+            f,
+            sep="\t",
+            compression="gzip",
+            usecols=list(self.columns.keys()),
+            dtype={col: "str" if col in category_cols else dtype for col, dtype in self.columns.items()},
+            **kwargs,
+        )
+        return df.astype({col: "category" for col in category_cols})
+
     @contextmanager
     def suppress_stdout(self):
         with open(os.devnull, "w") as devnull:
@@ -165,13 +184,7 @@ class BaseDownloader:
         for f in glob.glob(os.path.join(year_path, "*.gz")):
             try:
                 # complete file read needed to catch all corrupted files
-                df = pd.read_csv(
-                    f,
-                    sep="\t",
-                    compression="gzip",
-                    usecols=list(self.columns.keys()),
-                    dtype=self.columns,
-                )
+                df = self.read_raw_file(f)
                 del df
 
             except EOFError as e:
@@ -189,13 +202,7 @@ class BaseDownloader:
             if convert_to_parquet:
                 file_name = f.split("/")[-1].split(".")[0]
                 if file_name not in parquet_files or save_all_parquet_files:
-                    df = pd.read_csv(
-                        f,
-                        sep="\t",
-                        compression="gzip",
-                        usecols=list(self.columns.keys()),
-                        dtype=self.columns,
-                    )
+                    df = self.read_raw_file(f)
 
                     df.to_parquet(
                         Path(
@@ -216,14 +223,7 @@ class BaseDownloader:
 
         for f in glob.glob(os.path.join(year_path, "*.gz")):
             try:
-                df = pd.read_csv(
-                    f,
-                    sep="\t",
-                    compression="gzip",
-                    usecols=list(self.columns.keys()),
-                    dtype=self.columns,
-                    nrows=1,
-                )
+                df = self.read_raw_file(f, nrows=1)
 
             except EOFError as e:
                 self.config.logger.info(f"downloaded corrupted file: {f}")
@@ -246,13 +246,7 @@ class BaseDownloader:
                 try:
                     self.config.logger.info(f"Trying {attempts} attempt")
                     self.execute_download(year, self.earliest_date, reporter_code)
-                    df = pd.read_csv(
-                        corrupted_file,
-                        sep="\t",
-                        compression="gzip",
-                        usecols=list(self.columns.keys()),
-                        dtype=self.columns,
-                    )
+                    df = self.read_raw_file(corrupted_file)
                     # don't delete from list being iterated over
                     remove_from_corrupted.add(corrupted_file)
                     break
