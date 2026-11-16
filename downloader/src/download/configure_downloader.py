@@ -4,6 +4,10 @@ from datetime import datetime
 import logging
 import os
 import sys
+from downloader.src.utils.handle_config import get_end_year
+from downloader.data.static.constants import SERVICES
+
+import importlib
 
 
 class ComtradeConfig:
@@ -58,6 +62,8 @@ class ComtradeConfig:
         self.suppress_print = suppress_print or True
         self.converted_files = converted_files or True
 
+        self.handle_services()
+        
         self._validate()
         self._setup_paths()
         self._setup_logger(log_level)
@@ -66,6 +72,11 @@ class ComtradeConfig:
             self.file_extension = "gz"
         else:
             self.file_extension = "csv"
+            
+    def handle_services(self):
+        if self.classification_code in SERVICES:
+            self.converted_files = False
+            
 
     def _validate(self):
         if not self.api_key:
@@ -140,3 +151,33 @@ class ComtradeConfig:
                 path = getattr(self, attr_name)
                 if isinstance(path, Path):
                     path.mkdir(parents=True, exist_ok=True)
+
+
+def build_config_for_classification(classification_code, start_year, **config_dict):
+    """Build ComtradeConfig object for a one classification."""
+
+    return ComtradeConfig(
+        api_key=config_dict["api_key"],
+        output_dir=config_dict["output_dir"],
+        download_type=config_dict["download_type"],
+        product_classification=classification_code,
+        log_level=config_dict["log_level"],
+        start_year=start_year,
+        end_year=get_end_year(config_dict["end_year"]),
+        reporter_iso3_codes=config_dict["reporter_iso3_codes"],
+        partner_iso3_codes=config_dict["partner_iso3_codes"],
+        commodity_codes=config_dict["commodity_codes"],
+        flow_codes=config_dict["flow_codes"],
+        mot_codes=config_dict["mot_codes"],
+        mos_codes=config_dict["mos_codes"],
+        customs_codes=config_dict["customs_codes"],
+        drop_world_partner=config_dict["drop_world_partner"],
+        drop_secondary_partners=config_dict["drop_secondary_partners"],
+        delete_tmp_files=config_dict["delete_tmp_files"],
+        compress_output=config_dict["compress_output"],
+        suppress_print=config_dict["suppress_print"],
+        converted_files=config_dict["converted_files"],
+    )
+
+
+

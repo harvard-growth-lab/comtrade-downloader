@@ -1,13 +1,15 @@
 from pathlib import Path
 import re
 from datetime import datetime, timedelta
-from src.download.configure_downloader import ComtradeConfig
-from src.download.comtrade_file import ComtradeFile
-from src.download.api_downloader import ComtradeDownloader
+from downloader.src.download.configure_downloader import ComtradeConfig
+from downloader.src.download.comtrade_file import ComtradeFile
+from downloader.src.download.api_downloader import ComtradeDownloader
+from downloader.data.static.constants import CLASSIFICATION_RELEASE_YEARS
 import pandas as pd
 import os
 import shutil
-from src.utils.file_management import cleanup_files_from_dir
+from downloader.src.utils.file_management import cleanup_files_from_dir
+import gc
 
 
 pd.options.display.max_columns = None
@@ -58,7 +60,6 @@ class ClassificationConverter(object):
         self.target_class = target_class
         self.downloader = ComtradeDownloader(config)
 
-
     def run(self) -> None:
         """
         Copies the as reported data for the requested classification to the
@@ -86,13 +87,15 @@ class ClassificationConverter(object):
             # multiply weight by trade value
             self.run_conversion(weight, source_class)
             del weight
+            gc.collect()
 
     def run_conversion(self, weight: pd.DataFrame, source_class: str) -> None:
         """Run conversion in specified direction for given years"""
         self.config.logger.info(
             f"Beginning conversion for {source_class} to {self.target_class}..."
         )
-        for as_reported_year in range(self.config.start_year, self.config.end_year + 1):
+        start_year = max(CLASSIFICATION_RELEASE_YEARS[source_class], self.config.start_year)
+        for as_reported_year in range(start_year, self.config.end_year + 1):
             self.config.logger.info(f"for {as_reported_year}...")
 
             # Find all files in source classification for conversion
@@ -102,14 +105,17 @@ class ClassificationConverter(object):
                 / str(as_reported_year)
             )
             as_reported_files = list(raw_parquet_path.glob("*.parquet"))
+            if not as_reported_files:
+                self.config.logger.info(f"no country reported in {source_class} in {as_reported_year}")
+                continue
 
             # Process each file
             for file in as_reported_files:
-
                 df = self.convert_file(file, weight, source_class)
                 if df.empty:
                     continue
                 result = self.add_product_levels(df)
+                del df
                 result["isAggregate"] = 1
                 result = result.drop(columns="level")
 
@@ -306,6 +312,7 @@ class ClassificationConverter(object):
 
             weights = weights.drop_duplicates()
             del next_class_weights
+            self.config.logger.debug(f"weights columns after step {counter}: {weights.columns.tolist()}")
             next_class = seq_class
 
         weights = weights[weights[f"weight_{source_class}_{self.target_class}"] > 0]
@@ -361,7 +368,7 @@ class ClassificationConverter(object):
 
             destination_path.mkdir(parents=True, exist_ok=True)
             cleanup_files_from_dir(destination_path)
-            
+
             for file in original_paths:
                 filename = str(file.name)
                 destination_file = os.path.join(destination_path, filename)
@@ -427,7 +434,7 @@ class ClassificationConverter(object):
             self.config.converted_final_path.parent / self.target_class / str(year)
         )
         final_path.mkdir(parents=True, exist_ok=True)
-        
+
         final_file = f"{final_path}/{file_obj.name}"
         result.to_parquet(final_file, index=False)
         self.config.logger.debug(f"Saved to final file: {final_file}")
